@@ -67,7 +67,7 @@ export default function App() {
     setBusy(true); setNotice('Connecting to WebRTC peers…')
     try {
       const torrent = await new Promise<TorrentLike>((resolve, reject) => {
-        clientRef.current.add(source, (t: TorrentLike) => resolve(t), (err: Error) => reject(err))
+        clientRef.current.add(source, {}, (t: TorrentLike) => resolve(t))
       })
       updateTorrent(torrent, 'Finding peers')
       torrent.on('wire', () => updateTorrent(torrent, 'Connected'))
