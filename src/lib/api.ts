@@ -42,3 +42,21 @@ export function getTorrentWebSocketUrl(): string {
   url.search = '';
   return url.toString();
 }
+
+export async function downloadTorrentFile(torrentId: string, fileIndex: number): Promise<Blob> {
+  const token = getAccessToken();
+  if (!token) throw new Error('Please sign in again to download this file');
+  const response = await fetch(
+    `${API_BASE}/api/torrents/${encodeURIComponent(torrentId)}/files/${fileIndex}/download`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (response.status === 401) {
+    clearAccessToken();
+    window.dispatchEvent(new Event('torrentwide:unauthorized'));
+  }
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.detail || `Download failed (HTTP ${response.status})`);
+  }
+  return response.blob();
+}
