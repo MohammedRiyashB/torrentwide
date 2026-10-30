@@ -45,3 +45,10 @@ Python FastAPI backend with qBittorrent Web API integration and PostgreSQL-backe
 - Existing qBittorrent jobs that predate ownership records are intentionally not automatically claimed or exposed; migrate them through a controlled admin process.
 - A single shared qBittorrent daemon is still used. This is account-level API isolation, not separate resource quotas or a hostile multi-tenant sandbox.
 - Magnet submission currently supports links with valid 40-character hexadecimal or 32-character Base32 BTIH hashes. Torrent-file upload is not implemented yet.
+
+
+## Uploading .torrent metadata
+- Authenticated users can upload a `.torrent` file to `POST /api/torrents/upload` using multipart fields `torrentFile` and optional `isSequential`.
+- Uploads are limited to 10 MB and must contain valid BitTorrent metadata.
+- The backend calculates the info hash, checks account ownership conflicts, submits the metadata to qBittorrent, and records ownership in PostgreSQL.
+- The endpoint does not accept arbitrary files as torrent metadata. Downloaded payload files remain in the qBittorrent downloads volume.
