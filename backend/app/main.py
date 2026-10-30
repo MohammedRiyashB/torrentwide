@@ -426,6 +426,36 @@ async def download_torrent_file(
     return StreamingResponse(stream_file(), status_code=status_code, media_type=media_type, headers=headers)
 
 
+class FileSelectionRequest(BaseModel):
+    fileIds: list[int] = Field(min_length=1, max_length=500)
+
+
+@app.post("/api/torrents/{torrent_id}/select-files")
+def select_torrent_files(
+    torrent_id: str,
+    payload: FileSelectionRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    record = owned_record(db, user, torrent_id)
+    client = qbit()
+    try:
+        files = client.torrents_files(torrent_hash=record.info_hash)
+        valid_ids = {int(getattr(item, "index", -1)) for item in files}
+        if any(file_id not in valid_ids for file_id in payload.fileIds):
+            raise HTTPException(status_code=400, detail="One or more file IDs are invalid")
+        client.torrents_file_priority(
+            torrent_hash=record.info_hash,
+            file_ids=payload.fileIds,
+            priority=1,
+        )
+        return {"status": "updated", "message": "Selected files set to normal priority"}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Could not update torrent file priorities") from exc
+
+
 @app.post("/api/torrents/{torrent_id}/pause")
 def pause_torrent(
     torrent_id: str,
