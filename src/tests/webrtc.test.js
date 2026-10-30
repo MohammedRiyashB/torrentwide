@@ -52,3 +52,7 @@ test('opt-out removes Torrentwide public trackers but preserves source trackers'
   const result = new URL(prepareMagnetUri(magnet, false));
   assert.deepEqual(result.searchParams.getAll('tr'), ['udp://private-tracker.example:6969/announce']);
 });
+
+test('non-dictionary info fields fail closed as private', () => {
+  assert.equal(isPrivateTorrent(bytes('d4:info1:xe')), true);
+});
