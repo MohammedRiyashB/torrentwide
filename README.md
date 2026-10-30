@@ -19,7 +19,7 @@ Vite serves the local app from the root path. Production is published as a stati
 
 - Choose a local `.torrent` file or paste a magnet URI.
 - For a `.torrent` file, Torrentwide reads the BitTorrent private flag before adding any public trackers. Private torrents are not given public WebRTC trackers.
-- For magnet links, the **Add public WebRTC trackers** option is enabled by default to improve browser peer discovery for public swarms. Turn it off for private torrents. Trackers and peers can see the client's public IP address and the info hash.
+- For magnet links, the **Add public WebRTC trackers** option is off by default. Enable it only for public swarms to improve browser peer discovery; keep it off for private torrents. Trackers and peers can see the client's public IP address and the info hash.
 - Metadata, peer count, verified download progress, upload rate, and network warnings are shown in the live transfer panel.
 - Save completed files through the browser's File System Access save picker. The file is streamed to the chosen destination rather than first assembling the entire file in JavaScript memory.
 
