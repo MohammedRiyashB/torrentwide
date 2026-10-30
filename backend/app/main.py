@@ -456,6 +456,34 @@ def select_torrent_files(
         raise HTTPException(status_code=502, detail="Could not update torrent file priorities") from exc
 
 
+@app.post("/api/torrents/{torrent_id}/recheck")
+def recheck_torrent(
+    torrent_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    record = owned_record(db, user, torrent_id)
+    try:
+        qbit().torrents_recheck(torrent_hashes=record.info_hash)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Could not start torrent recheck") from exc
+    return {"status": "rechecking"}
+
+
+@app.post("/api/torrents/{torrent_id}/reannounce")
+def reannounce_torrent(
+    torrent_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    record = owned_record(db, user, torrent_id)
+    try:
+        qbit().torrents_reannounce(torrent_hashes=record.info_hash)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Could not reannounce torrent to trackers") from exc
+    return {"status": "reannounced"}
+
+
 @app.post("/api/torrents/{torrent_id}/pause")
 def pause_torrent(
     torrent_id: str,
