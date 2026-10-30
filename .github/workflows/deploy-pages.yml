@@ -2,7 +2,7 @@ name: Deploy Torrentwide to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [feat/browser-webtorrent-redesign]
   workflow_dispatch:
 
 permissions:
