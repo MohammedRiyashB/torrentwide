@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
 import os
@@ -9,7 +10,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import qbittorrentapi
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -20,8 +21,10 @@ from torf import Torrent
 from . import models  # noqa: F401 — registers ORM tables
 from .auth import get_current_user
 from .auth_routes import router as auth_router
-from .database import Base, engine, get_db
+from .database import Base, SessionLocal, engine, get_db
 from .models import TorrentRecord, User
+import jwt
+from datetime import datetime, timezone
 
 APP_NAME = "Torrentwide API"
 QBIT_HOST = os.getenv("QBITTORRENT_HOST", "http://qbittorrent:8080")
@@ -132,6 +135,56 @@ def owned_record(db: Session, user: User, torrent_id: str) -> TorrentRecord:
     if record is None:
         raise HTTPException(status_code=404, detail="Torrent not found for this account")
     return record
+
+
+@app.websocket("/api/torrents/ws")
+async def torrent_updates(websocket: WebSocket) -> None:
+    # Authenticate via the first WebSocket message, never a URL query parameter.
+    origin = websocket.headers.get("origin")
+    if ALLOWED_ORIGINS and origin not in ALLOWED_ORIGINS:
+        await websocket.close(code=1008)
+        return
+    await websocket.accept()
+    db = SessionLocal()
+    try:
+        try:
+            auth_message = await asyncio.wait_for(websocket.receive_json(), timeout=10)
+            token = auth_message.get("token") if isinstance(auth_message, dict) else None
+            if not token or len(os.getenv("JWT_SECRET", "")) < 32:
+                await websocket.close(code=1008)
+                return
+            try:
+                payload = jwt.decode(token, os.environ["JWT_SECRET"], algorithms=["HS256"])
+                user_id = int(payload["sub"])
+            except (jwt.InvalidTokenError, KeyError, TypeError, ValueError):
+                await websocket.close(code=1008)
+                return
+            user = db.get(User, user_id)
+            if user is None:
+                await websocket.close(code=1008)
+                return
+
+            while True:
+                records = db.scalars(
+                    select(TorrentRecord).where(TorrentRecord.user_id == user_id)
+                ).all()
+                hashes = [record.info_hash for record in records]
+                try:
+                    items = qbit().torrents_info(torrent_hashes=hashes) if hashes else []
+                    await websocket.send_json({
+                        "type": "torrent_update",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "torrents": [serialize_torrent(item) for item in items],
+                    })
+                except HTTPException:
+                    await websocket.send_json({"type": "error", "message": "Torrent engine temporarily unavailable"})
+                await asyncio.sleep(2)
+        except asyncio.TimeoutError:
+            await websocket.close(code=1008)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        db.close()
 
 
 @app.get("/health")
