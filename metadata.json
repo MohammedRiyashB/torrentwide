@@ -1,0 +1,6 @@
+{
+  "name": "Ultra Download Hub",
+  "description": "Complete Cloud Torrent Engine & Ultra-Fast Download Platform with real BitTorrent engine, HTTP Range acceleration, Android Chrome downloads, and real-time telemetry.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

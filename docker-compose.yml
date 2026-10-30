@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  # Ultra Download Hub Applet
+  ultra-hub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ultra_download_hub
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - APP_SECRET=${APP_SECRET:-ultra_secret_key_change_me_in_prod}
+      - QBITTORRENT_URL=http://qbittorrent:8080
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-ultrahub}:${POSTGRES_PASSWORD:-ultrahub_pass}@postgres:5432/${POSTGRES_DB:-ultrahub_db}
+    volumes:
+      - torrent_storage:/app/storage
+    depends_on:
+      - postgres
+      - qbittorrent
+    networks:
+      - ultra_net
+
+  # Dedicated qBittorrent BitTorrent Engine (Headless Daemon)
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: ultra_qbittorrent_engine
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - WEBUI_PORT=8080
+    volumes:
+      - qbt_config:/config
+      - torrent_storage:/downloads
+    ports:
+      # Direct P2P BitTorrent Ports (Ensure VPS provider permits P2P traffic on these ports)
+      - "6881:6881"
+      - "6881:6881/udp"
+    networks:
+      - ultra_net
+
+  # Production Relational Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: ultra_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-ultrahub}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ultrahub_pass}
+      - POSTGRES_DB=${POSTGRES_DB:-ultrahub_db}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./deploy/schema.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ultra_net
+
+  # Nginx Reverse Proxy with SSL and Range Streaming Buffer Tuning
+  nginx:
+    image: nginx:alpine
+    container_name: ultra_nginx_proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - certs_data:/etc/letsencrypt:ro
+    depends_on:
+      - ultra-hub
+    networks:
+      - ultra_net
+
+volumes:
+  torrent_storage:
+    driver: local
+  qbt_config:
+    driver: local
+  pg_data:
+    driver: local
+  certs_data:
+    driver: local
+
+networks:
+  ultra_net:
+    driver: bridge
