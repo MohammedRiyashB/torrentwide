@@ -87,10 +87,13 @@ function readPrivateFlag(bytes, infoStart) {
     const key = readString(bytes, cursor);
     cursor = key.next;
     const keyText = new TextDecoder().decode(key.value);
-    if (keyText === 'private' && bytes[cursor] === 0x69) {
+    if (keyText === 'private') {
+      if (bytes[cursor] !== 0x69) throw new Error('Invalid private flag type.');
       const end = bytes.indexOf(0x65, cursor + 1);
       if (end < 0) throw new Error('Unterminated private flag.');
-      return new TextDecoder().decode(bytes.subarray(cursor + 1, end)) === '1';
+      const flag = new TextDecoder().decode(bytes.subarray(cursor + 1, end));
+      if (!/^(0|[1-9][0-9]*)$/.test(flag)) throw new Error('Invalid private flag value.');
+      return flag !== '0';
     }
     cursor = skipValue(bytes, cursor, 1);
   }
