@@ -1,0 +1,4 @@
+fastapi
+uvicorn[standard]
+qbittorrent-api
+pydantic-settings
