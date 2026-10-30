@@ -29,13 +29,24 @@ export function prepareMagnetUri(input, addPublicTrackers = true) {
     throw new Error('The magnet link has no valid BitTorrent v1 info hash (BTIH).');
   }
 
-  const currentTrackers = new Set(
-    uri.searchParams.getAll('tr').map((tracker) => tracker.trim().replace(/\/$/, '').toLowerCase())
-  );
+  const suppliedTrackers = uri.searchParams.getAll('tr');
+  uri.searchParams.delete('tr');
+  const currentTrackers = new Set();
+
+  for (const tracker of suppliedTrackers) {
+    const normalized = tracker.trim().replace(/\/+$/, '').toLowerCase();
+    const isTorrentwidePublicTracker = WEBRTC_TRACKERS.some((candidate) => candidate.toLowerCase() === normalized);
+    if (!normalized || (!addPublicTrackers && isTorrentwidePublicTracker) || currentTrackers.has(normalized)) continue;
+    uri.searchParams.append('tr', tracker);
+    currentTrackers.add(normalized);
+  }
+
   if (addPublicTrackers) {
     for (const tracker of WEBRTC_TRACKERS) {
-      if (!currentTrackers.has(tracker.toLowerCase())) {
+      const normalized = tracker.toLowerCase();
+      if (!currentTrackers.has(normalized)) {
         uri.searchParams.append('tr', tracker);
+        currentTrackers.add(normalized);
       }
     }
   }
