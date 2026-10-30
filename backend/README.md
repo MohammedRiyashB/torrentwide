@@ -29,3 +29,11 @@ Python FastAPI backend with qBittorrent Web API integration and PostgreSQL-backe
 - This is an initial foundation, not a production-ready full feature migration. File manager, torrent-file upload, file selection, download streaming/HTTP Range, history, audit logs, settings and live SSE/WebSocket events are still outstanding.
 - Reliable torrenting needs an always-on host, persistent writable storage and P2P networking. Free serverless hosting is not suitable for a continuously running torrent engine.
 - Keep qBittorrent's Web UI private; only the FastAPI container should reach it over the internal Docker network.
+
+
+## Frontend connection (migration in progress)
+- Set Vercel project environment variable `VITE_API_BASE_URL` to the public HTTPS origin of the FastAPI service (no trailing slash), then redeploy the frontend.
+- The React app now displays a login/register gate and sends bearer JWTs through its API helper for fetch-based API requests.
+- Registration requires a valid email and a password of at least 12 characters.
+- Do not put server secrets in Vercel frontend variables. Only the public API origin belongs in `VITE_API_BASE_URL`.
+- Existing SSE EventSource and non-torrent API features have not yet been migrated. Torrent file upload, file manager, history, settings, audit log and streaming still need dedicated FastAPI endpoints and authenticated client integration.
