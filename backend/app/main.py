@@ -108,7 +108,7 @@ def list_torrents() -> list[dict[str, Any]]:
     return [serialize_torrent(t) for t in qbit().torrents_info()]
 
 
-@app.post("/api/torrents/magnet", dependencies=[Depends(require_token)])
+@app.post("/api/torrents/magnet", dependencies=[Depends(get_current_user)])
 def add_magnet(payload: MagnetRequest) -> dict[str, str]:
     if not payload.magnetUri.startswith("magnet:?"):
         raise HTTPException(status_code=400, detail="A valid magnet URI is required")
@@ -127,19 +127,19 @@ def add_magnet(payload: MagnetRequest) -> dict[str, str]:
     return {"status": "added", "message": "Magnet submitted to qBittorrent"}
 
 
-@app.post("/api/torrents/{torrent_id}/pause", dependencies=[Depends(require_token)])
+@app.post("/api/torrents/{torrent_id}/pause", dependencies=[Depends(get_current_user)])
 def pause_torrent(torrent_id: str) -> dict[str, str]:
     qbit().torrents_pause(torrent_hashes=torrent_id)
     return {"status": "paused"}
 
 
-@app.post("/api/torrents/{torrent_id}/resume", dependencies=[Depends(require_token)])
+@app.post("/api/torrents/{torrent_id}/resume", dependencies=[Depends(get_current_user)])
 def resume_torrent(torrent_id: str) -> dict[str, str]:
     qbit().torrents_resume(torrent_hashes=torrent_id)
     return {"status": "resumed"}
 
 
-@app.delete("/api/torrents/{torrent_id}", dependencies=[Depends(require_token)])
+@app.delete("/api/torrents/{torrent_id}", dependencies=[Depends(get_current_user)])
 def delete_torrent(torrent_id: str, deleteFiles: bool = False) -> dict[str, str]:
     qbit().torrents_delete(torrent_hashes=torrent_id, delete_files=deleteFiles)
     return {"status": "deleted"}
