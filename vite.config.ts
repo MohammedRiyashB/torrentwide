@@ -11,7 +11,14 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        // WebTorrent depends on Node core modules. Map these to browser-safe shims.
+        events: 'events/',
+        path: 'path-browserify',
+        process: 'process/browser',
       },
+    },
+    define: {
+      global: 'globalThis',
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env VAR.
