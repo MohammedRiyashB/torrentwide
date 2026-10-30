@@ -19,6 +19,7 @@ export default defineConfig(() => {
     },
     define: {
       global: 'globalThis',
+      process: 'globalThis.process',
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env VAR.
