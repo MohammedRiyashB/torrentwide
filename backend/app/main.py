@@ -50,7 +50,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -145,7 +145,7 @@ def owned_record(db: Session, user: User, torrent_id: str) -> TorrentRecord:
 async def torrent_updates(websocket: WebSocket) -> None:
     # Authenticate via the first WebSocket message, never a URL query parameter.
     origin = websocket.headers.get("origin")
-    if ALLOWED_ORIGINS and origin not in ALLOWED_ORIGINS:
+    if not origin or origin not in ALLOWED_ORIGINS:
         await websocket.close(code=1008)
         return
     await websocket.accept()
