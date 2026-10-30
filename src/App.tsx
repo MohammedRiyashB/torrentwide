@@ -146,6 +146,10 @@ export default function App() {
       return;
     }
 
+    const previousTorrent = torrentRef.current;
+    torrentRef.current = null;
+    if (previousTorrent) previousTorrent.destroy({ destroyStore: false });
+
     setPhase('loading');
     setProgress(0);
     setSpeed(0);
@@ -201,13 +205,6 @@ export default function App() {
         throw new Error('The installed WebTorrent engine reports that WebRTC is unavailable in this browser.');
       }
 
-      if (torrentRef.current) {
-        const previous = torrentRef.current;
-        torrentRef.current = null;
-        await destroyTorrentSafely(previous);
-        if (attempt !== attemptRef.current) return;
-      }
-
       if (!clientRef.current) {
         const client = new WebTorrent({
           maxConns: 40,
@@ -219,9 +216,10 @@ export default function App() {
           utp: false,
         });
         client.on('error', (clientError: unknown) => {
-          if (attempt !== attemptRef.current) return;
-          torrentRef.current = null;
+          if (clientRef.current !== client) return;
           clientRef.current = null;
+          if (!torrentRef.current) return;
+          torrentRef.current = null;
           setTorrent(null);
           setPhase('error');
           setError(clientError instanceof Error ? clientError.message : 'The WebTorrent client stopped unexpectedly.');
@@ -252,42 +250,28 @@ export default function App() {
         setSelectedFile(0);
         setPhase(readyTorrent.done ? 'complete' : (readyTorrent.numPeers > 0 ? 'downloading' : 'connecting'));
         setMessage('Torrent metadata received. Waiting for WebRTC peers and verified pieces.');
-        readyTorrent.on('done', () => {
-          if (attempt !== attemptRef.current) return;
-          setPhase('complete');
-          setRemaining('Done');
-          setMessage('Download complete. Save each file to your device.');
-        });
-        readyTorrent.on('download', () => {
-          if (attempt !== attemptRef.current) return;
-          setPhase('downloading');
-        });
-        readyTorrent.on('wire', () => {
-          if (attempt !== attemptRef.current) return;
-          setPeers(readyTorrent.numPeers || 0);
-          setPhase('downloading');
-          setSwarmStatus('A WebRTC peer connected. Waiting for verified pieces.');
-        });
-        readyTorrent.on('noPeers', (announceType: string) => {
-          if (attempt !== attemptRef.current) return;
-          setSwarmStatus('No browser-compatible peers reported by ' + announceType + '. This swarm may only have TCP/UDP peers.');
-        });
-        readyTorrent.on('warning', (warning: unknown) => {
-          if (attempt !== attemptRef.current) return;
-          const warningText = warning instanceof Error ? warning.message : String(warning || 'Tracker warning');
-          setSwarmStatus('Network warning: ' + warningText);
-        });
-        readyTorrent.on('error', (torrentError: unknown) => {
-          if (attempt !== attemptRef.current) return;
-          setPhase('error');
-          setError(torrentError instanceof Error ? torrentError.message : 'The torrent encountered a fatal error.');
-        });
+        setSwarmStatus(readyTorrent.numPeers > 0 ? 'WebRTC peers are connected.' : 'Metadata found. Waiting for browser-compatible peers.');
       });
 
       torrentRef.current = activeTorrent;
       activeTorrent.on('noPeers', (announceType: string) => {
         if (attempt !== attemptRef.current) return;
         setSwarmStatus('No browser-compatible peers reported by ' + announceType + '. A TCP/UDP-only swarm cannot connect to a browser.');
+      });
+      activeTorrent.on('done', () => {
+        if (attempt !== attemptRef.current) return;
+        setPhase('complete');
+        setRemaining('Done');
+        setMessage('Download complete. Save each file to your device.');
+      });
+      activeTorrent.on('download', () => {
+        if (attempt !== attemptRef.current) return;
+        setPhase('downloading');
+      });
+      activeTorrent.on('warning', (warning: unknown) => {
+        if (attempt !== attemptRef.current) return;
+        const warningText = warning instanceof Error ? warning.message : String(warning || 'Tracker warning');
+        setSwarmStatus('Network warning: ' + warningText);
       });
       activeTorrent.on('wire', () => {
         if (attempt !== attemptRef.current) return;
