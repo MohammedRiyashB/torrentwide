@@ -8,13 +8,11 @@ from .database import Base, engine
 from . import models  # noqa: F401 — registers ORM tables
 from .auth_routes import router as auth_router
 from .auth import get_current_user
-from .models import User
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 APP_NAME = "Torrentwide API"
-API_TOKEN = os.getenv("TORRENTWIDE_API_TOKEN", "")
 QBIT_HOST = os.getenv("QBITTORRENT_HOST", "http://qbittorrent:8080")
 QBIT_USER = os.getenv("QBITTORRENT_USER", "admin")
 QBIT_PASSWORD = os.getenv("QBITTORRENT_PASSWORD", "")
@@ -105,7 +103,7 @@ def api_health() -> dict[str, Any]:
     return {"status": "ok", "torrent_engine": client.app.version}
 
 
-@app.get("/api/torrents", dependencies=[Depends(require_token)])
+@app.get("/api/torrents", dependencies=[Depends(get_current_user)])
 def list_torrents() -> list[dict[str, Any]]:
     return [serialize_torrent(t) for t in qbit().torrents_info()]
 
