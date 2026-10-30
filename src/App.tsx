@@ -9,7 +9,7 @@ type TorrentLike = {
   files: Array<{name:string; path:string; length:number; progress:number; stream:()=>ReadableStream<Uint8Array>}>;
   on:(event:string, cb:()=>void)=>void; destroy:(cb?:()=>void)=>void; pause?:()=>void; resume?:()=>void;
 };
-type ClientLike = { add:(id:string|Uint8Array, opts:any, cb:(torrent:TorrentLike)=>void)=>TorrentLike; destroy:(cb?:()=>void)=>void; torrents:TorrentLike[] };
+type ClientLike = { add:(id:string|Uint8Array, opts:any, cb:(torrent:TorrentLike)=>void)=>TorrentLike; on:(event:string,cb:(error?:Error)=>void)=>void; destroy:(cb?:()=>void)=>void; torrents:TorrentLike[] };
 type SavePickerWindow = Window & { showSaveFilePicker?: (opts?:any)=>Promise<{createWritable:()=>Promise<WritableStream>}> };
 
 const formatBytes = (n:number) => {
@@ -70,7 +70,7 @@ export default function App() {
     if(!('RTCPeerConnection' in window)) { setError('This browser does not support WebRTC P2P. Open Torrentwide in an up-to-date Chrome browser.'); return; }
     try {
       setPhase('connecting'); setProgress(0); setSpeed(0); setPeers(0);
-      if(!clientRef.current) clientRef.current = new WebTorrent() as unknown as ClientLike;
+      if(!clientRef.current) {\n        const client = new WebTorrent() as unknown as ClientLike;\n        client.on('error', (err) => { setPhase('error'); setError(err?.message || 'The browser P2P client stopped unexpectedly.'); });\n        clientRef.current = client;\n      }
       if(torrentRef.current) { torrentRef.current.destroy(); torrentRef.current=null; setTorrent(null); }
       const source = torrentFile ? new Uint8Array(await torrentFile.arrayBuffer()) : withWebTrackers(magnet);
       const t = clientRef.current.add(source as any, { announce: ['wss://tracker.openwebtorrent.com','wss://tracker.btorrent.xyz'], store: (chunkLength:number, storeOptions:any) => FSAChunkStore(chunkLength, { length: storeOptions.length, name: storeOptions.name, rootDir: storeOptions.rootDir }) }, (ready) => {
