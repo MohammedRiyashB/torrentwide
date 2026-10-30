@@ -7,7 +7,7 @@ export const WEBRTC_TRACKERS = Object.freeze([
 const BTIH_HEX = /^[a-f0-9]{40}$/i;
 const BTIH_BASE32 = /^[a-z2-7]{32}$/i;
 
-export function prepareMagnetUri(input) {
+export function prepareMagnetUri(input, addPublicTrackers = true) {
   const value = String(input ?? '').trim();
   if (!value) throw new Error('Paste a magnet link first.');
 
@@ -32,9 +32,11 @@ export function prepareMagnetUri(input) {
   const currentTrackers = new Set(
     uri.searchParams.getAll('tr').map((tracker) => tracker.trim().replace(/\/$/, '').toLowerCase())
   );
-  for (const tracker of WEBRTC_TRACKERS) {
-    if (!currentTrackers.has(tracker.toLowerCase())) {
-      uri.searchParams.append('tr', tracker);
+  if (addPublicTrackers) {
+    for (const tracker of WEBRTC_TRACKERS) {
+      if (!currentTrackers.has(tracker.toLowerCase())) {
+        uri.searchParams.append('tr', tracker);
+      }
     }
   }
 
