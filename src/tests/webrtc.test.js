@@ -43,3 +43,12 @@ test('invalid private flag encodings fail closed as private', () => {
   assert.equal(isPrivateTorrent(bytes('d4:infod7:private1:14:name1:xee')), true);
   assert.equal(isPrivateTorrent(bytes('d4:infod7:privatei2e4:name1:xee')), true);
 });
+
+test('opt-out removes Torrentwide public trackers but preserves source trackers', () => {
+  const hash = '0123456789abcdef0123456789abcdef01234567';
+  const magnet = 'magnet:?xt=urn:btih:' + hash +
+    '&tr=' + encodeURIComponent(WEBRTC_TRACKERS[0]) +
+    '&tr=' + encodeURIComponent('udp://private-tracker.example:6969/announce');
+  const result = new URL(prepareMagnetUri(magnet, false));
+  assert.deepEqual(result.searchParams.getAll('tr'), ['udp://private-tracker.example:6969/announce']);
+});
