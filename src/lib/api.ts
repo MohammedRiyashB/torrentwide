@@ -33,3 +33,12 @@ export async function readApiError(response: Response): Promise<string> {
   }
   return `API request failed (HTTP ${response.status}). Check VITE_API_BASE_URL and backend deployment.`;
 }
+
+export function getTorrentWebSocketUrl(): string {
+  const base = API_BASE || window.location.origin;
+  const url = new URL(base);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  url.pathname = `${url.pathname.replace(/\/$/, '')}/api/torrents/ws`;
+  url.search = '';
+  return url.toString();
+}
