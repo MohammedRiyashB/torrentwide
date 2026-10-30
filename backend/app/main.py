@@ -331,22 +331,31 @@ def add_magnet(
 
 def torrent_file_path(torrent_id: str, file_index: int, user: User, db: Session) -> tuple[Path, Any]:
     record = owned_record(db, user, torrent_id)
+    client = qbit()
     try:
-        files = qbit().torrents_files(torrent_hash=record.info_hash)
+        files = client.torrents_files(torrent_hash=record.info_hash)
+        torrent_info = client.torrents_info(torrent_hash=record.info_hash)
     except Exception as exc:
         raise HTTPException(status_code=502, detail="Could not retrieve torrent file metadata") from exc
     selected = next((item for item in files if int(getattr(item, "index", -1)) == file_index), None)
-    if selected is None:
+    if selected is None or not torrent_info:
         raise HTTPException(status_code=404, detail="Torrent file not found")
     relative_name = str(getattr(selected, "name", ""))
-    root = Path(DOWNLOAD_PATH).resolve()
-    candidate = (root / relative_name).resolve()
+    download_root = Path(DOWNLOAD_PATH).resolve()
+    content_path = Path(str(getattr(torrent_info[0], "content_path", ""))).resolve()
+    if not relative_name or not content_path.is_absolute():
+        raise HTTPException(status_code=404, detail="Torrent content path is unavailable")
+    # qBittorrent content_path is the file itself for single-file torrents,
+    # and the containing directory for multi-file torrents.
+    if len(files) == 1 and content_path.name == Path(relative_name).name:
+        candidate = content_path
+    else:
+        candidate = (content_path / relative_name).resolve()
     try:
-        candidate.relative_to(root)
+        candidate.relative_to(download_root)
     except ValueError:
         raise HTTPException(status_code=400, detail="Unsafe torrent file path")
     return candidate, selected
-
 
 @app.get("/api/torrents/{torrent_id}/files")
 def list_torrent_files(
