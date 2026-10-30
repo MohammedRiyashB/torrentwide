@@ -334,14 +334,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                 <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
                   <span className="text-[11px] text-slate-400 font-mono">
-                    Ready for Android Chrome
+                    Completed file
                   </span>
                   <button
                     onClick={() => onDownloadToPhone(file)}
                     className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition-all"
                   >
                     <Smartphone className="w-3.5 h-3.5" />
-                    <span>DOWNLOAD TO PHONE</span>
+                    <span>SAVE FILE</span>
                   </button>
                 </div>
               </div>

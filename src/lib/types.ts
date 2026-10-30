@@ -101,6 +101,7 @@ export interface StorageFile {
   modifiedAt: number;
   sha256?: string;
   torrentId?: string;
+  torrentFileIndex?: number;
   torrentName?: string;
   isDirectory: boolean;
   extension: string;

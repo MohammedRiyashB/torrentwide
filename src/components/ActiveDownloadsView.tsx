@@ -16,7 +16,7 @@ import {
   ChevronUp,
   Layers
 } from 'lucide-react';
-import { TorrentItem } from '../lib/types';
+import { TorrentItem, TorrentFileItem } from '../lib/types';
 import { formatBytes, formatSpeed, formatEta } from '../lib/formatters';
 
 interface ActiveDownloadsViewProps {
@@ -26,7 +26,8 @@ interface ActiveDownloadsViewProps {
   onRecheck: (id: string) => void;
   onReannounce: (id: string) => void;
   onDelete: (id: string, deleteFiles: boolean) => void;
-  onSelectFiles: (id: string, selectedFileIds: string[]) => void;
+  onSelectFiles: (id: string, selectedFileIds: string[]) => Promise<void>;
+  onFetchFiles: (id: string) => Promise<TorrentFileItem[]>;
 }
 
 export const ActiveDownloadsView: React.FC<ActiveDownloadsViewProps> = ({
@@ -37,9 +38,12 @@ export const ActiveDownloadsView: React.FC<ActiveDownloadsViewProps> = ({
   onReannounce,
   onDelete,
   onSelectFiles,
+  onFetchFiles,
 }) => {
   const [expandedTorrentId, setExpandedTorrentId] = useState<string | null>(null);
   const [copiedHashId, setCopiedHashId] = useState<string | null>(null);
+  const [loadedFiles, setLoadedFiles] = useState<Record<string, TorrentFileItem[]>>({});
+  const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
 
   const activeTorrents = torrents.filter(t => t.status !== 'completed');
 
@@ -49,11 +53,30 @@ export const ActiveDownloadsView: React.FC<ActiveDownloadsViewProps> = ({
     setTimeout(() => setCopiedHashId(null), 2000);
   };
 
-  const toggleFileSelect = (torrent: TorrentItem, fileId: string) => {
-    const updatedIds = torrent.files
-      .filter(f => (f.id === fileId ? !f.selected : f.selected))
-      .map(f => f.id);
-    onSelectFiles(torrent.id, updatedIds);
+  const toggleFileSelect = async (torrent: TorrentItem, fileId: string) => {
+    const current = loadedFiles[torrent.id] || [];
+    const updated = current.map(file => file.id === fileId ? { ...file, selected: !file.selected } : file);
+    setLoadedFiles(previous => ({ ...previous, [torrent.id]: updated }));
+    try {
+      await onSelectFiles(torrent.id, updated.filter(file => file.selected).map(file => file.id));
+    } catch (error) {
+      setLoadedFiles(previous => ({ ...previous, [torrent.id]: current }));
+      setFileErrors(previous => ({ ...previous, [torrent.id]: (error as Error).message }));
+    }
+  };
+
+  const toggleExpanded = async (torrent: TorrentItem) => {
+    const nextOpen = expandedTorrentId !== torrent.id;
+    setExpandedTorrentId(nextOpen ? torrent.id : null);
+    if (nextOpen && !loadedFiles[torrent.id]) {
+      try {
+        const files = await onFetchFiles(torrent.id);
+        setLoadedFiles(previous => ({ ...previous, [torrent.id]: files }));
+        setFileErrors(previous => ({ ...previous, [torrent.id]: '' }));
+      } catch (error) {
+        setFileErrors(previous => ({ ...previous, [torrent.id]: (error as Error).message }));
+      }
+    }
   };
 
   return (
@@ -169,10 +192,10 @@ export const ActiveDownloadsView: React.FC<ActiveDownloadsViewProps> = ({
                     </button>
 
                     <button
-                      onClick={() => setExpandedTorrentId(isExpanded ? null : torrent.id)}
+                      onClick={() => toggleExpanded(torrent)}
                       className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1 border border-slate-700"
                     >
-                      <span>Files ({torrent.files.length})</span>
+                      <span>Files ({(loadedFiles[torrent.id] || []).length})</span>
                       {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                     </button>
                   </div>
@@ -255,7 +278,7 @@ export const ActiveDownloadsView: React.FC<ActiveDownloadsViewProps> = ({
                       Torrent Files & Download Priority
                     </div>
                     <div className="space-y-1.5 bg-slate-950 p-3 rounded-xl border border-slate-800 max-h-56 overflow-y-auto">
-                      {torrent.files.map(f => (
+                      {(loadedFiles[torrent.id] || []).map(f => (
                         <div
                           key={f.id}
                           className="flex items-center justify-between text-xs p-2 rounded hover:bg-slate-900 border border-transparent hover:border-slate-800"
@@ -279,6 +302,9 @@ export const ActiveDownloadsView: React.FC<ActiveDownloadsViewProps> = ({
                         </div>
                       ))}
                     </div>
+                    {fileErrors[torrent.id] && (
+                      <p className="text-xs text-rose-400">{fileErrors[torrent.id]}</p>
+                    )}
                   </div>
                 )}
               </div>

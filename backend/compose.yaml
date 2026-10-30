@@ -1,0 +1,57 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      QBITTORRENT_HOST: http://qbittorrent:8080
+      TORRENT_DOWNLOAD_PATH: /downloads
+    ports:
+      - "8000:8000"
+    volumes:
+      - torrent_downloads:/downloads
+    depends_on:
+      db:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: torrentwide
+      POSTGRES_USER: torrentwide
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in backend/.env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U torrentwide -d torrentwide"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    restart: unless-stopped
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-Asia/Kolkata}
+      WEBUI_PORT: "8080"
+      WEBUI_USERNAME: ${QBITTORRENT_USER:-admin}
+      WEBUI_PASSWORD: ${QBITTORRENT_PASSWORD:?Set QBITTORRENT_PASSWORD in backend/.env}
+      TORRENTING_PORT: "6881"
+    volumes:
+      - qbittorrent_config:/config
+      - torrent_downloads:/downloads
+    ports:
+      - "6881:6881"
+      - "6881:6881/udp"
+
+volumes:
+  postgres_data:
+  qbittorrent_config:
+  torrent_downloads:
