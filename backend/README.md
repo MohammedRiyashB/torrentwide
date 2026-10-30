@@ -37,3 +37,11 @@ Python FastAPI backend with qBittorrent Web API integration and PostgreSQL-backe
 - Registration requires a valid email and a password of at least 12 characters.
 - Do not put server secrets in Vercel frontend variables. Only the public API origin belongs in `VITE_API_BASE_URL`.
 - Existing SSE EventSource and non-torrent API features have not yet been migrated. Torrent file upload, file manager, history, settings, audit log and streaming still need dedicated FastAPI endpoints and authenticated client integration.
+
+
+## Per-account torrent ownership
+- The API records each added magnet's BitTorrent info hash against the authenticated user in PostgreSQL.
+- List, pause, resume and delete operations are restricted to hashes owned by the signed-in account. Unknown or other-account hashes return 404.
+- Existing qBittorrent jobs that predate ownership records are intentionally not automatically claimed or exposed; migrate them through a controlled admin process.
+- A single shared qBittorrent daemon is still used. This is account-level API isolation, not separate resource quotas or a hostile multi-tenant sandbox.
+- Magnet submission currently supports links with valid 40-character hexadecimal or 32-character Base32 BTIH hashes. Torrent-file upload is not implemented yet.
