@@ -74,7 +74,7 @@ export default function App() {
 
   const refreshTokens = useCallback(async () => {
     try {
-      const res = await fetch('/api/tokens');
+      const res = await apiFetch('/api/tokens');
       if (res.ok) {
         const data = await res.json();
         setTokens(data);
@@ -86,7 +86,7 @@ export default function App() {
 
   const refreshAuditLogs = useCallback(async () => {
     try {
-      const res = await fetch('/api/audit-logs');
+      const res = await apiFetch('/api/audit-logs');
       if (res.ok) {
         const data = await res.json();
         setAuditLogs(data);
@@ -98,7 +98,7 @@ export default function App() {
 
   const refreshHistory = useCallback(async () => {
     try {
-      const res = await fetch('/api/history');
+      const res = await apiFetch('/api/history');
       if (res.ok) {
         const data = await res.json();
         setHistory(data);
@@ -110,7 +110,7 @@ export default function App() {
 
   const refreshSettings = useCallback(async () => {
     try {
-      const res = await fetch('/api/settings');
+      const res = await apiFetch('/api/settings');
       if (res.ok) {
         const data = await res.json();
         setSettings(data);
@@ -154,7 +154,7 @@ export default function App() {
     formData.append('torrentFile', file);
     formData.append('isSequential', String(isSequential));
 
-    const res = await fetch('/api/torrents/upload', {
+    const res = await apiFetch('/api/torrents/upload', {
       method: 'POST',
       body: formData,
     });
@@ -166,7 +166,7 @@ export default function App() {
   };
 
   const handleAddMagnet = async (magnetUri: string, name?: string, isSequential?: boolean) => {
-    const res = await fetch('/api/torrents/magnet', {
+    const res = await apiFetch('/api/torrents/magnet', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ magnetUri, name, isSequential }),
@@ -179,7 +179,7 @@ export default function App() {
   };
 
   const handleAddPreset = async (presetId: string) => {
-    const res = await fetch('/api/torrents/preset', {
+    const res = await apiFetch('/api/torrents/preset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ presetId }),
@@ -197,29 +197,29 @@ export default function App() {
   };
 
   const handleResumeTorrent = async (id: string) => {
-    await fetch(`/api/torrents/${encodeURIComponent(id)}/resume`, { method: 'POST' });
+    await apiFetch(`/api/torrents/${encodeURIComponent(id)}/resume`, { method: 'POST' });
     refreshAuditLogs();
   };
 
   const handleRecheckTorrent = async (id: string) => {
-    await fetch(`/api/torrents/${encodeURIComponent(id)}/recheck`, { method: 'POST' });
+    await apiFetch(`/api/torrents/${encodeURIComponent(id)}/recheck`, { method: 'POST' });
     refreshAuditLogs();
   };
 
   const handleReannounceTorrent = async (id: string) => {
-    await fetch(`/api/torrents/${encodeURIComponent(id)}/reannounce`, { method: 'POST' });
+    await apiFetch(`/api/torrents/${encodeURIComponent(id)}/reannounce`, { method: 'POST' });
     refreshAuditLogs();
   };
 
   const handleDeleteTorrent = async (id: string, deleteFiles = false) => {
     if (!confirm('Are you sure you want to remove this torrent from active downloads?')) return;
-    await fetch(`/api/torrents/${encodeURIComponent(id)}?deleteFiles=${deleteFiles}`, { method: 'DELETE' });
+    await apiFetch(`/api/torrents/${encodeURIComponent(id)}?deleteFiles=${deleteFiles}`, { method: 'DELETE' });
     refreshAuditLogs();
     refreshStorageFiles();
   };
 
   const handleSelectFiles = async (id: string, fileIds: string[]) => {
-    await fetch(`/api/torrents/${encodeURIComponent(id)}/select-files`, {
+    await apiFetch(`/api/torrents/${encodeURIComponent(id)}/select-files`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fileIds }),
@@ -236,7 +236,7 @@ export default function App() {
   };
 
   const handleCalculateSha256 = async (file: StorageFile): Promise<string> => {
-    const res = await fetch(`/api/files/${encodeURIComponent(file.id)}/sha256`, { method: 'POST' });
+    const res = await apiFetch(`/api/files/${encodeURIComponent(file.id)}/sha256`, { method: 'POST' });
     if (!res.ok) throw new Error('Failed to compute hash');
     const data = await res.json();
     return data.sha256;
@@ -244,14 +244,14 @@ export default function App() {
 
   const handleDeleteFile = async (file: StorageFile) => {
     if (!confirm(`Are you sure you want to permanently delete "${file.name}" from cloud storage?`)) return;
-    const res = await fetch(`/api/files/${encodeURIComponent(file.id)}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/files/${encodeURIComponent(file.id)}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to delete file');
     refreshStorageFiles();
     refreshAuditLogs();
   };
 
   const handleRenameFile = async (file: StorageFile, newName: string) => {
-    const res = await fetch(`/api/files/${encodeURIComponent(file.id)}/rename`, {
+    const res = await apiFetch(`/api/files/${encodeURIComponent(file.id)}/rename`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ newName }),
@@ -265,20 +265,20 @@ export default function App() {
   };
 
   const handleCreateZip = async (file: StorageFile) => {
-    const res = await fetch(`/api/files/${encodeURIComponent(file.id)}/zip`, { method: 'POST' });
+    const res = await apiFetch(`/api/files/${encodeURIComponent(file.id)}/zip`, { method: 'POST' });
     if (!res.ok) throw new Error('Failed to create archive');
     refreshStorageFiles();
     refreshAuditLogs();
   };
 
   const handleRevokeToken = async (tokenStr: string) => {
-    await fetch(`/api/tokens/${encodeURIComponent(tokenStr)}/revoke`, { method: 'POST' });
+    await apiFetch(`/api/tokens/${encodeURIComponent(tokenStr)}/revoke`, { method: 'POST' });
     refreshTokens();
     refreshAuditLogs();
   };
 
   const handleSaveSettings = async (updated: Partial<PerformanceSettings>) => {
-    const res = await fetch('/api/settings', {
+    const res = await apiFetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updated),
