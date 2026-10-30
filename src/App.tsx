@@ -70,7 +70,14 @@ export default function App() {
     if(!('RTCPeerConnection' in window)) { setError('This browser does not support WebRTC P2P. Open Torrentwide in an up-to-date Chrome browser.'); return; }
     try {
       setPhase('connecting'); setProgress(0); setSpeed(0); setPeers(0);
-      if(!clientRef.current) {\n        const client = new WebTorrent() as unknown as ClientLike;\n        client.on('error', (err) => { setPhase('error'); setError(err?.message || 'The browser P2P client stopped unexpectedly.'); });\n        clientRef.current = client;\n      }
+      if (!clientRef.current) {
+        const client = new WebTorrent() as unknown as ClientLike;
+        client.on('error', (err) => {
+          setPhase('error');
+          setError(err?.message || 'The browser P2P client stopped unexpectedly.');
+        });
+        clientRef.current = client;
+      }
       if(torrentRef.current) { torrentRef.current.destroy(); torrentRef.current=null; setTorrent(null); }
       const source = torrentFile ? new Uint8Array(await torrentFile.arrayBuffer()) : withWebTrackers(magnet);
       const t = clientRef.current.add(source as any, { announce: ['wss://tracker.openwebtorrent.com','wss://tracker.btorrent.xyz'], store: (chunkLength:number, storeOptions:any) => FSAChunkStore(chunkLength, { length: storeOptions.length, name: storeOptions.name, rootDir: storeOptions.rootDir }) }, (ready) => {
