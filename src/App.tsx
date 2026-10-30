@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, ArrowDownToLine, Check, ChevronDown, CircleHelp, CloudOff, Download, FileArchive, FileUp, Gauge, Globe2, Link2, LoaderCircle, Magnet, Pause, Play, Radio, ShieldCheck, Sparkles, Trash2, Upload, Wifi, X } from 'lucide-react';
 import WebTorrent from 'webtorrent';
+import FSAChunkStore from 'fs-access-chunk-store';
 
 type TorrentLike = {
   name: string; infoHash: string; progress: number; downloadSpeed: number; uploadSpeed: number;
@@ -72,7 +73,7 @@ export default function App() {
       if(!clientRef.current) clientRef.current = new WebTorrent() as unknown as ClientLike;
       if(torrentRef.current) { torrentRef.current.destroy(); torrentRef.current=null; setTorrent(null); }
       const source = torrentFile ? new Uint8Array(await torrentFile.arrayBuffer()) : withWebTrackers(magnet);
-      const t = clientRef.current.add(source as any, { announce: ['wss://tracker.openwebtorrent.com','wss://tracker.btorrent.xyz'] }, (ready) => {
+      const t = clientRef.current.add(source as any, { announce: ['wss://tracker.openwebtorrent.com','wss://tracker.btorrent.xyz'], store: (chunkLength:number, storeOptions:any) => FSAChunkStore(chunkLength, { length: storeOptions.length, name: storeOptions.name, rootDir: storeOptions.rootDir }) }, (ready) => {
         torrentRef.current=ready; setTorrent(ready); setSelectedFile(0);
         setPhase(ready.done?'complete':'downloading');
         setMessage('Torrent metadata received. Connected to the WebRTC swarm.');
@@ -94,6 +95,7 @@ export default function App() {
     if(!picker) { setError('Your browser does not offer direct file saving here. Update Chrome or use the browser download option after completion.'); return; }
     try {
       setSaving(true); setError('');
+      setSelectedFile(fileIndex);
       const handle=await picker({ suggestedName:f.name });
       const writable=await handle.createWritable();
       await f.stream().pipeTo(writable);
