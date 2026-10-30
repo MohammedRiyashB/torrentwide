@@ -3,16 +3,18 @@ from __future__ import annotations
 import base64
 import os
 import re
+import tempfile
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import qbittorrentapi
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from torf import Torrent
 
 from . import models  # noqa: F401 — registers ORM tables
 from .auth import get_current_user
@@ -153,6 +155,69 @@ def list_torrents(
         return []
     items = qbit().torrents_info(torrent_hashes=hashes)
     return [serialize_torrent(item) for item in items]
+
+
+@app.post("/api/torrents/upload")
+def upload_torrent_file(
+    torrentFile: UploadFile = File(...),
+    isSequential: bool = Form(False),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    filename = (torrentFile.filename or "").strip()
+    if not filename.lower().endswith(".torrent"):
+        raise HTTPException(status_code=400, detail="Upload a .torrent file")
+    content = torrentFile.file.read(10 * 1024 * 1024 + 1)
+    if not content or len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Torrent file must be between 1 byte and 10 MB")
+
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".torrent", delete=False) as temp_file:
+            temp_file.write(content)
+            temp_path = temp_file.name
+        metadata = Torrent.read(temp_path)
+        info_hash = str(metadata.infohash).lower()
+        if not re.fullmatch(r"[a-f0-9]{40}", info_hash):
+            raise ValueError("Invalid torrent info hash")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="The uploaded file is not a valid BitTorrent metadata file") from exc
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.unlink(temp_path)
+
+    existing_record = db.scalar(select(TorrentRecord).where(TorrentRecord.info_hash == info_hash))
+    if existing_record:
+        if existing_record.user_id == user.id:
+            return {"status": "already_added", "infoHash": info_hash, "message": "This torrent is already in your account"}
+        raise HTTPException(status_code=409, detail="This torrent is already managed by another account")
+
+    client = qbit()
+    if client.torrents_info(torrent_hashes=info_hash):
+        raise HTTPException(status_code=409, detail="This torrent already exists in the engine and cannot be claimed automatically")
+
+    try:
+        result = client.torrents_add(
+            torrent_files=content,
+            save_path=DOWNLOAD_PATH,
+            is_sequential=isSequential,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="qBittorrent could not add this torrent file") from exc
+    if str(result).lower() not in {"ok.", "ok", "none"}:
+        raise HTTPException(status_code=502, detail="qBittorrent rejected the torrent file")
+
+    db.add(TorrentRecord(info_hash=info_hash, user_id=user.id, name=filename))
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        try:
+            client.torrents_delete(torrent_hashes=info_hash, delete_files=False)
+        except Exception:
+            pass
+        raise HTTPException(status_code=409, detail="Torrent ownership conflict; please retry") from exc
+    return {"status": "added", "infoHash": info_hash, "message": "Torrent file submitted to qBittorrent"}
 
 
 @app.post("/api/torrents/magnet")
