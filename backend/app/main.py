@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import io
 import os
 import re
 import tempfile
@@ -198,7 +199,7 @@ def upload_torrent_file(
 
     try:
         result = client.torrents_add(
-            torrent_files=content,
+            torrent_files=io.BytesIO(content),
             save_path=DOWNLOAD_PATH,
             is_sequential=isSequential,
         )
