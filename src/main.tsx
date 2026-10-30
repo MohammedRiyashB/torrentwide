@@ -1,5 +1,5 @@
 import { Buffer } from 'buffer';
-import process from 'process/browser';
+import process from 'process';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
