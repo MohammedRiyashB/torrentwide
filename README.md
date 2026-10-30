@@ -26,7 +26,7 @@ Downloads and uploads happen on the visitor's device/network. While a torrent is
 
 ## Saving files
 
-After the torrent completes, use **Save** next to a file. The app feature-detects the browser File System Access save picker and streams the selected torrent file to the user-chosen destination. Browser support and available storage vary by device. Keep the tab open until the save operation finishes.
+Torrent pieces are stored in the browser's Origin Private File System (OPFS) using `fs-access-chunk-store`, rather than holding the entire torrent in RAM. This is local storage on the visitor's device, not cloud storage. After completion, use **Save** next to a file. The app feature-detects the File System Access save picker and streams the selected torrent file to the user-chosen destination. Browser support and available device storage vary. Keep the tab open until the save operation finishes. Clearing site data may remove locally stored torrent pieces.
 
 ## Privacy and safety
 
