@@ -1,10 +1,16 @@
-import React, { FormEvent, useState } from 'react';
+import React, { FormEvent, useState, useEffect } from 'react';
 import { clearAccessToken, getAccessToken, setAccessToken } from '../lib/api';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
 export const AuthGate: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [token, setToken] = useState<string | null>(getAccessToken());
+  useEffect(() => {
+    const expire = () => setToken(null);
+    window.addEventListener('torrentwide:unauthorized', expire);
+    return () => window.removeEventListener('torrentwide:unauthorized', expire);
+  }, []);
+
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
