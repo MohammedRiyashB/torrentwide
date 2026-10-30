@@ -1,5 +1,5 @@
 import React, { FormEvent, useState, useEffect } from 'react';
-import { clearAccessToken, getAccessToken, setAccessToken } from '../lib/api';
+import { getAccessToken, setAccessToken } from '../lib/api';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
