@@ -62,3 +62,13 @@ Python FastAPI backend with qBittorrent Web API integration and PostgreSQL-backe
 - The backend currently samples qBittorrent every 2 seconds; this is WebSocket push delivery over periodic engine polling, not native qBittorrent event streaming.
 - The React dashboard uses WebSockets and falls back to 5-second authenticated HTTP polling if the socket closes.
 - Configure `CORS_ORIGINS` with the exact frontend origins for production. Use HTTPS/WSS in production.
+
+
+## Torrent file manager and streaming
+- `GET /api/torrents/{info_hash}/files` returns file indexes, paths, sizes, progress and priorities for a torrent owned by the signed-in user.
+- `POST /api/torrents/{info_hash}/select-files` validates submitted file indexes and sets their qBittorrent priority to normal.
+- `GET /api/torrents/{info_hash}/files/{file_index}/download` streams an available file with HTTP byte-range support (206 Partial Content), allowing resumable media downloads.
+- Every endpoint verifies the torrent ownership record before accessing qBittorrent or the filesystem.
+- Resolved paths are constrained to the configured download directory to prevent path traversal.
+- Files that have not finished downloading may be incomplete; the endpoint reports 404 until the file exists.
+- The React API helper includes bearer-authenticated file download support. The existing general-purpose File Manager screens still need a separate API migration and UI wiring.
