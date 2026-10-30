@@ -185,8 +185,10 @@ export default function App() {
     }
 
     refreshStorageFiles();
+    const fileRefreshTimer = window.setInterval(refreshStorageFiles, 15000);
 
     return () => {
+      window.clearInterval(fileRefreshTimer);
       cancelled = true;
       if (fallbackTimer !== undefined) window.clearInterval(fallbackTimer);
       socket?.close();
@@ -362,15 +364,13 @@ export default function App() {
           <CompletedDownloadsView
             files={files}
             onDownloadToPhone={handleDirectDownload}
-            onDirectDownload={handleDirectDownload}
           />
         )}
 
         {currentTab === 'files' && (
           <FileManagerView
             files={files}
-            onDownloadToPhone={handleOpenPhoneDownload}
-            onDirectDownload={handleDirectDownload}
+            onDownloadToPhone={handleDirectDownload}
           />
         )}
 
