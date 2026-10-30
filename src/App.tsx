@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, ArrowDownToLine, Check, ChevronDown, CircleHelp, CloudOff, Download, FileArchive, FileUp, Gauge, Globe2, Link2, LoaderCircle, Magnet, Pause, Play, Radio, ShieldCheck, Sparkles, Trash2, Upload, Wifi, X } from 'lucide-react';
-import WebTorrent from 'webtorrent';
-import FSAChunkStore from 'fs-access-chunk-store';
 
 type TorrentLike = {
   name: string; infoHash: string; progress: number; downloadSpeed: number; uploadSpeed: number;
@@ -70,6 +68,11 @@ export default function App() {
     if(!('RTCPeerConnection' in window)) { setError('This browser does not support WebRTC P2P. Open Torrentwide in an up-to-date Chrome browser.'); return; }
     try {
       setPhase('connecting'); setProgress(0); setSpeed(0); setPeers(0);
+      // Load Node/browser-heavy P2P dependencies only after the interface is already rendered.
+      const [{ default: WebTorrent }, { default: FSAChunkStore }] = await Promise.all([
+        import('webtorrent'),
+        import('fs-access-chunk-store'),
+      ]);
       if (!clientRef.current) {
         const client = new WebTorrent() as unknown as ClientLike;
         client.on('error', (err) => {
