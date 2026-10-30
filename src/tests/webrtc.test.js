@@ -38,3 +38,8 @@ test('invalid magnet sources are rejected', () => {
   assert.throws(() => prepareMagnetUri('https://example.com/file.torrent'), /magnet/i);
   assert.throws(() => prepareMagnetUri('magnet:?dn=missing-hash'), /info hash/i);
 });
+
+test('invalid private flag encodings fail closed as private', () => {
+  assert.equal(isPrivateTorrent(bytes('d4:infod7:private1:14:name1:xee')), true);
+  assert.equal(isPrivateTorrent(bytes('d4:infod7:privatei2e4:name1:xee')), true);
+});
