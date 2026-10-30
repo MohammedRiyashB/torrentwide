@@ -7,7 +7,9 @@ import qbittorrentapi
 from .database import Base, engine
 from . import models  # noqa: F401 — registers ORM tables
 from .auth_routes import router as auth_router
-from fastapi import Depends, FastAPI, Header, HTTPException
+from .auth import get_current_user
+from .models import User
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -40,13 +42,6 @@ class MagnetRequest(BaseModel):
     magnetUri: str = Field(min_length=10, max_length=8192)
     name: str | None = Field(default=None, max_length=255)
     isSequential: bool = False
-
-
-def require_token(authorization: str | None = Header(default=None)) -> None:
-    if not API_TOKEN:
-        raise HTTPException(status_code=503, detail="Backend API token is not configured")
-    if authorization != f"Bearer {API_TOKEN}":
-        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 def qbit() -> qbittorrentapi.Client:
@@ -104,7 +99,7 @@ def health() -> dict[str, str]:
     return {"status": "ok", "service": APP_NAME}
 
 
-@app.get("/api/health", dependencies=[Depends(require_token)])
+@app.get("/api/health", dependencies=[Depends(get_current_user)])
 def api_health() -> dict[str, Any]:
     client = qbit()
     return {"status": "ok", "torrent_engine": client.app.version}
