@@ -5,7 +5,7 @@ import WebTorrent from 'webtorrent';
 type TorrentLike = {
   name: string; infoHash: string; progress: number; downloadSpeed: number; uploadSpeed: number;
   numPeers: number; timeRemaining: number; length: number; downloaded: number; done: boolean;
-  files: Array<{name:string; path:string; length:number; progress:number; streamTo:(dest:WritableStream)=>void}>;
+  files: Array<{name:string; path:string; length:number; progress:number; stream:()=>ReadableStream<Uint8Array>}>;
   on:(event:string, cb:()=>void)=>void; destroy:(cb?:()=>void)=>void; pause?:()=>void; resume?:()=>void;
 };
 type ClientLike = { add:(id:string|Uint8Array, opts:any, cb:(torrent:TorrentLike)=>void)=>TorrentLike; destroy:(cb?:()=>void)=>void; torrents:TorrentLike[] };
@@ -57,7 +57,7 @@ export default function App() {
       const t=torrentRef.current;
       if(!t) return;
       setProgress(t.progress || 0); setSpeed(t.downloadSpeed || 0); setUploadSpeed(t.uploadSpeed || 0);
-      setPeers(t.numPeers || 0); setRemaining(formatTime(t.timeRemaining));
+      setPeers(t.numPeers || 0); setRemaining(formatTime((t.timeRemaining || 0) / 1000));
       if(t.done) setPhase('complete');
     },700);
     return ()=>window.clearInterval(timer);
@@ -96,8 +96,8 @@ export default function App() {
       setSaving(true); setError('');
       const handle=await picker({ suggestedName:f.name });
       const writable=await handle.createWritable();
-      f.streamTo(writable);
-      setMessage('Writing '+f.name+' to the location you selected…');
+      await f.stream().pipeTo(writable);
+      setMessage('Saved '+f.name+' to your selected location.');
       setSaving(false);
     } catch(e) {
       setSaving(false);
