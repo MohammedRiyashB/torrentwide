@@ -439,7 +439,7 @@ async def download_torrent_file(
 
 
 class FileSelectionRequest(BaseModel):
-    fileIds: list[int] = Field(min_length=1, max_length=500)
+    fileIds: list[int] = Field(default_factory=list, max_length=500)
 
 
 @app.post("/api/torrents/{torrent_id}/select-files")
@@ -456,12 +456,22 @@ def select_torrent_files(
         valid_ids = {int(getattr(item, "index", -1)) for item in files}
         if any(file_id not in valid_ids for file_id in payload.fileIds):
             raise HTTPException(status_code=400, detail="One or more file IDs are invalid")
-        client.torrents_file_priority(
-            torrent_hash=record.info_hash,
-            file_ids=payload.fileIds,
-            priority=1,
-        )
-        return {"status": "updated", "message": "Selected files set to normal priority"}
+        # Apply the selection as a complete set: deselected files must be
+        # explicitly disabled, otherwise old selections remain active.
+        all_ids = sorted(valid_ids)
+        if all_ids:
+            client.torrents_file_priority(
+                torrent_hash=record.info_hash,
+                file_ids=all_ids,
+                priority=0,
+            )
+        if payload.fileIds:
+            client.torrents_file_priority(
+                torrent_hash=record.info_hash,
+                file_ids=payload.fileIds,
+                priority=1,
+            )
+        return {"status": "updated", "message": "Torrent file selection updated"}
     except HTTPException:
         raise
     except Exception as exc:
