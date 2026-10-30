@@ -4,6 +4,9 @@ import os
 from typing import Any
 
 import qbittorrentapi
+from .database import Base, engine
+from . import models  # noqa: F401 — registers ORM tables
+from .auth_routes import router as auth_router
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -17,6 +20,13 @@ DOWNLOAD_PATH = os.getenv("TORRENT_DOWNLOAD_PATH", "/downloads")
 ALLOWED_ORIGINS = [v.strip() for v in os.getenv("CORS_ORIGINS", "").split(",") if v.strip()]
 
 app = FastAPI(title=APP_NAME, version="0.1.0")
+app.include_router(auth_router)
+
+@app.on_event("startup")
+def create_tables() -> None:
+    Base.metadata.create_all(bind=engine)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
