@@ -92,7 +92,7 @@ function skipValue(bytes, offset, depth = 0) {
 }
 
 function readPrivateFlag(bytes, infoStart) {
-  if (bytes[infoStart] !== 0x64) return false;
+  if (bytes[infoStart] !== 0x64) throw new Error('The info field must be a bencode dictionary.');
   let cursor = infoStart + 1;
   while (cursor < bytes.length && bytes[cursor] !== 0x65) {
     const key = readString(bytes, cursor);
