@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { AuthGate } from './components/AuthGate';
+import { apiFetch } from './lib/api';
 import { Header } from './components/Header';
 import { Navigation, TabKey } from './components/Navigation';
 import { DashboardView } from './components/DashboardView';
@@ -60,7 +62,7 @@ export default function App() {
   // Fetch initial data
   const refreshStorageFiles = useCallback(async () => {
     try {
-      const res = await fetch('/api/files');
+      const res = await apiFetch('/api/files');
       if (res.ok) {
         const data = await res.json();
         setFiles(data);
@@ -197,7 +199,7 @@ export default function App() {
   };
 
   const handlePauseTorrent = async (id: string) => {
-    await fetch(`/api/torrents/${encodeURIComponent(id)}/pause`, { method: 'POST' });
+    await apiFetch(`/api/torrents/${encodeURIComponent(id)}/pause`, { method: 'POST' });
     refreshAuditLogs();
   };
 
@@ -302,6 +304,7 @@ export default function App() {
   const completedCount = files.length;
 
   return (
+    <AuthGate>
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       {/* Top Header */}
       <Header
@@ -430,5 +433,6 @@ export default function App() {
         }}
       />
     </div>
+    </AuthGate>
   );
 }
