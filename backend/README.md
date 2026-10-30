@@ -72,3 +72,13 @@ Python FastAPI backend with qBittorrent Web API integration and PostgreSQL-backe
 - Resolved paths are constrained to the configured download directory to prevent path traversal.
 - Files that have not finished downloading may be incomplete; the endpoint reports 404 until the file exists.
 - The React API helper includes bearer-authenticated file download support. The existing general-purpose File Manager screens still need a separate API migration and UI wiring.
+
+
+## Stage 9 security and integration audit
+- CORS now permits the frontend's supported `PUT` settings requests in addition to GET/POST/DELETE. Set `CORS_ORIGINS` to exact trusted frontend origins; the WebSocket endpoint rejects missing or unlisted browser origins.
+- Torrent recheck and tracker reannounce actions are implemented and ownership-checked.
+- Login reports the configured JWT expiry instead of assuming every token lasts exactly one hour.
+- File downloads resolve from qBittorrent's content path and remain constrained to the configured downloads directory.
+- The React app still contains legacy calls for presets, general storage files, tokens, audit logs, history and settings. Those endpoints are not all implemented in FastAPI yet; the related screens must not be considered fully migrated.
+- In-memory rate limiting, email verification, password reset, refresh-token rotation, per-user storage quotas, and isolated per-user torrent engine processes are not implemented. Do not expose public registration or run an untrusted public multi-tenant service until these controls are designed and tested.
+- GitHub Actions validation was queued for the latest observed frontend commit; a queued run is not a passing result.
