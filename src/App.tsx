@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AuthGate } from './components/AuthGate';
-import { apiFetch } from './lib/api';
+import { apiFetch, getAccessToken, getTorrentWebSocketUrl } from './lib/api';
 import { Header } from './components/Header';
 import { Navigation, TabKey } from './components/Navigation';
 import { DashboardView } from './components/DashboardView';
@@ -120,22 +120,51 @@ export default function App() {
     }
   }, []);
 
-  // Poll the authenticated FastAPI torrent endpoint until WebSocket events are added.
+  // Prefer authenticated WebSocket updates; fall back to slower polling if unavailable.
   useEffect(() => {
     let cancelled = false;
+    let fallbackTimer: number | undefined;
+    let socket: WebSocket | undefined;
     const refreshTorrents = async () => {
       try {
         const response = await apiFetch('/api/torrents');
+        if (response.status === 401) return;
         if (!response.ok) return;
         const data = await response.json();
         if (!cancelled) setTorrents(data);
       } catch {
-        // Keep the last known state while the backend is unavailable.
+        // Preserve the last known torrent state during temporary network errors.
       }
     };
 
-    refreshTorrents();
-    const interval = window.setInterval(refreshTorrents, 3000);
+    const token = getAccessToken();
+    if (token) {
+      socket = new WebSocket(getTorrentWebSocketUrl());
+      socket.onopen = () => {
+        socket?.send(JSON.stringify({ token }));
+      };
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (!cancelled && message.type === 'torrent_update' && Array.isArray(message.torrents)) {
+            setTorrents(message.torrents);
+          }
+        } catch {
+          // Ignore malformed telemetry messages.
+        }
+      };
+      socket.onclose = () => {
+        if (!cancelled) {
+          refreshTorrents();
+          fallbackTimer = window.setInterval(refreshTorrents, 5000);
+        }
+      };
+      socket.onerror = () => socket?.close();
+    } else {
+      refreshTorrents();
+      fallbackTimer = window.setInterval(refreshTorrents, 5000);
+    }
+
     refreshStorageFiles();
     refreshTokens();
     refreshAuditLogs();
@@ -144,7 +173,8 @@ export default function App() {
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      if (fallbackTimer !== undefined) window.clearInterval(fallbackTimer);
+      socket?.close();
     };
   }, [refreshStorageFiles, refreshTokens, refreshAuditLogs, refreshHistory, refreshSettings]);
 
