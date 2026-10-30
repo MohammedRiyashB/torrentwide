@@ -76,7 +76,7 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [selectedFile, setSelectedFile] = useState(0);
   const [showInfo, setShowInfo] = useState(false);
-  const [addPublicTrackers, setAddPublicTrackers] = useState(true);
+  const [addPublicTrackers, setAddPublicTrackers] = useState(false);
   const [privateTorrent, setPrivateTorrent] = useState(false);
 
   useEffect(() => {
