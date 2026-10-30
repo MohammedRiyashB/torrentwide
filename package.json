@@ -16,7 +16,8 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "vite": "^8.3.0",
-    "webtorrent": "^3.0.21"
+    "webtorrent": "^3.0.21",
+    "fs-access-chunk-store": "^1.3.0"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
