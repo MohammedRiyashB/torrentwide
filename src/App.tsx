@@ -120,38 +120,31 @@ export default function App() {
     }
   }, []);
 
-  // Connect to SSE live telemetry stream
+  // Poll the authenticated FastAPI torrent endpoint until WebSocket events are added.
   useEffect(() => {
+    let cancelled = false;
+    const refreshTorrents = async () => {
+      try {
+        const response = await apiFetch('/api/torrents');
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!cancelled) setTorrents(data);
+      } catch {
+        // Keep the last known state while the backend is unavailable.
+      }
+    };
+
+    refreshTorrents();
+    const interval = window.setInterval(refreshTorrents, 3000);
     refreshStorageFiles();
     refreshTokens();
     refreshAuditLogs();
     refreshHistory();
     refreshSettings();
 
-    const eventSource = new EventSource('/api/events');
-
-    eventSource.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        if (payload.system) setSystemStats(payload.system);
-        if (payload.torrents) setTorrents(payload.torrents);
-      } catch (err) {
-        console.error('SSE JSON error:', err);
-      }
-    };
-
-    eventSource.onerror = () => {
-      // fallback to polling if SSE drops
-    };
-
-    // Periodic storage file refresh every 4 seconds
-    const interval = setInterval(() => {
-      refreshStorageFiles();
-    }, 4000);
-
     return () => {
-      eventSource.close();
-      clearInterval(interval);
+      cancelled = true;
+      window.clearInterval(interval);
     };
   }, [refreshStorageFiles, refreshTokens, refreshAuditLogs, refreshHistory, refreshSettings]);
 
