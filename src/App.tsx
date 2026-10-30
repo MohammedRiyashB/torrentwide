@@ -55,24 +55,6 @@ const formatTime = (seconds: number) => {
   return Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
 };
 
-const destroyTorrentSafely = (torrent: TorrentLike) => new Promise<void>((resolve) => {
-  let finished = false;
-  const finish = () => {
-    if (finished) return;
-    finished = true;
-    resolve();
-  };
-  try {
-    const result = torrent.destroy({ destroyStore: false }, finish) as unknown;
-    if (result && typeof (result as Promise<unknown>).then === 'function') {
-      (result as Promise<unknown>).then(finish, finish);
-    }
-    window.setTimeout(finish, 2500);
-  } catch {
-    finish();
-  }
-});
-
 export default function App() {
   const clientRef = useRef<ClientLike | null>(null);
   const torrentRef = useRef<TorrentLike | null>(null);
@@ -231,6 +213,12 @@ export default function App() {
       const client = clientRef.current;
       if (!client) throw new Error('The P2P client could not be initialized.');
 
+      setPhase('connecting');
+      if (!torrentFile && addPublicTrackers) {
+        setMessage('Connecting to public WebRTC trackers. Tracker discovery may take a short while.');
+      } else {
+        setMessage('Starting a direct browser-to-peer session.');
+      }
       const activeTorrent = client.add(source, {
         announce: extraAnnounce,
         private: isPrivate,
@@ -284,12 +272,6 @@ export default function App() {
         setError(torrentError instanceof Error ? torrentError.message : 'Could not start this torrent. Check the source file or magnet link.');
       });
 
-      if (!torrentFile && addPublicTrackers) {
-        setMessage('Connecting to the WebRTC trackers. Tracker discovery can take a short while; zero compatible peers may mean this swarm cannot connect to browsers.');
-      } else {
-        setMessage('Starting a direct browser-to-peer session.');
-      }
-      setPhase('connecting');
     } catch (startError) {
       if (attempt !== attemptRef.current) return;
       setPhase('error');
