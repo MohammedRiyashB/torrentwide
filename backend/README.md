@@ -1,24 +1,31 @@
-# Torrentwide FastAPI backend — initial migration
+# Torrentwide FastAPI backend — migration foundation
 
-This is the first migration slice: FastAPI health checks and authenticated qBittorrent operations.
+Python FastAPI backend with qBittorrent Web API integration and PostgreSQL-backed user accounts.
 
-## Included
-- `GET /health` liveness endpoint
-- Bearer-token protected `GET /api/health` and `GET /api/torrents`
-- Bearer-token protected magnet add, pause, resume and delete endpoints
-- Real qBittorrent Web API integration; no simulated progress
+## Implemented in this branch
+- `GET /health`: public liveness check
+- `POST /api/auth/register`: create an account (email + password of at least 12 characters)
+- `POST /api/auth/login`: OAuth2 password-form login; returns a short-lived JWT
+- `GET /api/auth/me`: return the authenticated account
+- qBittorrent operations: list torrents, add magnet, pause, resume and delete
+- Docker Compose stack: API, PostgreSQL and qBittorrent with persistent named volumes
 
-## Run locally
-1. Start qBittorrent with its Web UI reachable from this service.
-2. Copy `.env.example` to `.env`; set unique credentials and a long random API token.
-3. Install dependencies: `python -m pip install -r requirements.txt`
-4. From this directory run: `uvicorn app.main:app --host 0.0.0.0 --port 8000`
-5. Open `/docs` for interactive API documentation.
+## Local setup
+1. Install Docker Engine and the Docker Compose plugin.
+2. From this directory, copy `.env.example` to `.env`.
+3. Set unique random values for `JWT_SECRET` (at least 32 characters), `TORRENTWIDE_API_TOKEN`, `POSTGRES_PASSWORD` and `QBITTORRENT_PASSWORD`. Ensure the password in `DATABASE_URL` matches `POSTGRES_PASSWORD`.
+4. Start services: `docker compose --env-file .env up --build -d`.
+5. Check `http://localhost:8000/health` and open `http://localhost:8000/docs`.
 
-## Security and deployment
-- Never commit `.env`, API tokens, qBittorrent credentials or database passwords.
-- Keep the qBittorrent Web UI private; do not expose port 8080 publicly.
-- Set `CORS_ORIGINS` to the exact frontend origin.
-- The existing frontend still calls same-origin `/api/*` routes without a bearer token. It is not connected to this service yet; a coordinated API-client migration is required.
-- Reliable torrenting requires a persistent host, writable persistent download volume and P2P networking. Free serverless hosting is not suitable for a continuously running torrent engine.
-- This first slice does not yet implement the complete frontend API contract (file manager, tokens, audit logs, history, settings, streaming or SSE). These remain migration work.
+## Authentication notes
+- Passwords are hashed using Argon2 via pwdlib; plaintext passwords are never stored.
+- Access tokens are signed JWTs and expire after the configured `ACCESS_TOKEN_MINUTES` (default 60).
+- Registration is currently open. Before public launch, add email verification, abuse/rate limiting, account recovery and a registration policy.
+- The existing torrent endpoints still use the temporary server-wide bearer token. The next security step is to replace that with per-user JWT authorization and associate each torrent with its owner.
+- Never put JWT secrets, API tokens, database credentials or qBittorrent credentials in frontend environment variables or commit real `.env` files.
+
+## Important integration/deployment limits
+- The React frontend has not yet been migrated to these FastAPI endpoints. Its existing relative `/api/*` calls will continue hitting Vercel until an API base URL and authenticated API client are implemented.
+- This is an initial foundation, not a production-ready full feature migration. File manager, torrent-file upload, file selection, download streaming/HTTP Range, history, audit logs, settings and live SSE/WebSocket events are still outstanding.
+- Reliable torrenting needs an always-on host, persistent writable storage and P2P networking. Free serverless hosting is not suitable for a continuously running torrent engine.
+- Keep qBittorrent's Web UI private; only the FastAPI container should reach it over the internal Docker network.
