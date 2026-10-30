@@ -5,7 +5,7 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from .auth import create_access_token, get_current_user, hash_password, verify_password
+from .auth import ACCESS_TOKEN_MINUTES, create_access_token, get_current_user, hash_password, verify_password
 from .database import get_db
 from .models import User
 
@@ -38,7 +38,7 @@ def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], db: Session = D
     user = db.scalar(select(User).where(User.email == email))
     if user is None or not verify_password(form.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Incorrect email or password", headers={"WWW-Authenticate": "Bearer"})
-    return {"access_token": create_access_token(user.id), "token_type": "bearer", "expires_in": 3600}
+    return {"access_token": create_access_token(user.id), "token_type": "bearer", "expires_in": ACCESS_TOKEN_MINUTES * 60}
 
 @router.get("/me", response_model=UserResponse)
 def me(user: User = Depends(get_current_user)):
