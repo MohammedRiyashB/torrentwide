@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Buffer } from 'buffer';
 import {
   Activity, ArrowDownToLine, Check, CircleHelp, CloudOff, Download, FileArchive,
   FileUp, Gauge, Globe2, Magnet, Radio, ShieldCheck, Sparkles, Trash2, Upload,
@@ -155,7 +156,10 @@ export default function App() {
         const bytes = new Uint8Array(await torrentFile.arrayBuffer());
         if (attempt !== attemptRef.current) return;
         isPrivate = isPrivateTorrent(bytes);
-        source = bytes;
+        // WebTorrent's browser API expects a Buffer for raw .torrent metainfo.
+        // A plain Uint8Array can be accepted as a peer id in some code paths and
+        // leave the torrent waiting forever without firing its metadata callback.
+        source = Buffer.from(bytes);
         sourceName = torrentFile.name;
       } else {
         source = prepareMagnetUri(magnet, addPublicTrackers);
@@ -219,6 +223,20 @@ export default function App() {
       } else {
         setMessage('Starting a direct browser-to-peer session.');
       }
+      let metadataReadyHandled = false;
+      const onMetadataReady = (readyTorrent: TorrentLike) => {
+        if (metadataReadyHandled || attempt !== attemptRef.current) return;
+        metadataReadyHandled = true;
+        torrentRef.current = readyTorrent;
+        setTorrent(readyTorrent);
+        setSelectedFile(0);
+        setPhase(readyTorrent.done ? 'complete' : (readyTorrent.numPeers > 0 ? 'downloading' : 'connecting'));
+        setMessage('Torrent metadata loaded. Waiting for browser-compatible peers and verified pieces.');
+        setSwarmStatus(readyTorrent.numPeers > 0
+          ? 'WebRTC peers are connected.'
+          : 'Torrent metadata loaded. No browser-compatible peers are connected yet.');
+      };
+
       const activeTorrent = client.add(source, {
         announce: extraAnnounce,
         private: isPrivate,
@@ -231,17 +249,15 @@ export default function App() {
           name: storeOptions.name,
           rootDir: storeOptions.rootDir,
         }),
-      }, (readyTorrent) => {
-        if (attempt !== attemptRef.current) return;
-        torrentRef.current = readyTorrent;
-        setTorrent(readyTorrent);
-        setSelectedFile(0);
-        setPhase(readyTorrent.done ? 'complete' : (readyTorrent.numPeers > 0 ? 'downloading' : 'connecting'));
-        setMessage('Torrent metadata received. Waiting for WebRTC peers and verified pieces.');
-        setSwarmStatus(readyTorrent.numPeers > 0 ? 'WebRTC peers are connected.' : 'Metadata found. Waiting for browser-compatible peers.');
-      });
+      }, onMetadataReady);
 
       torrentRef.current = activeTorrent;
+      // Listen to the explicit ready event as well as the add callback. This
+      // keeps the UI in sync across WebTorrent versions and callback timing.
+      activeTorrent.on('ready', () => onMetadataReady(activeTorrent));
+      if ((activeTorrent as TorrentLike & { ready?: boolean }).ready) {
+        onMetadataReady(activeTorrent);
+      }
       activeTorrent.on('noPeers', (announceType: string) => {
         if (attempt !== attemptRef.current) return;
         setSwarmStatus('No browser-compatible peers reported by ' + announceType + '. A TCP/UDP-only swarm cannot connect to a browser.');
