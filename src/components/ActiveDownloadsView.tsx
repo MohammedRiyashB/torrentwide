@@ -302,6 +302,9 @@ export const ActiveDownloadsView: React.FC<ActiveDownloadsViewProps> = ({
                         </div>
                       ))}
                     </div>
+                    {fileErrors[torrent.id] && (
+                      <p className="text-xs text-rose-400">{fileErrors[torrent.id]}</p>
+                    )}
                   </div>
                 )}
               </div>
