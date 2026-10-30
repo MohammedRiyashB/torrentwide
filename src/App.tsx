@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AuthGate } from './components/AuthGate';
-import { apiFetch, getAccessToken, getTorrentWebSocketUrl, readApiError } from './lib/api';
+import { apiFetch, downloadTorrentFile, getAccessToken, getTorrentWebSocketUrl, readApiError } from './lib/api';
 import { Header } from './components/Header';
 import { Navigation, TabKey } from './components/Navigation';
 import { DashboardView } from './components/DashboardView';
@@ -13,7 +13,6 @@ import { PerformanceSettingsView } from './components/PerformanceSettingsView';
 import { StorageSettingsView } from './components/StorageSettingsView';
 import { SecurityAuditView } from './components/SecurityAuditView';
 import { SystemInfoView } from './components/SystemInfoView';
-import { DownloadToPhoneModal } from './components/DownloadToPhoneModal';
 import {
   SystemStats,
   TorrentItem,
@@ -57,19 +56,38 @@ export default function App() {
   });
 
   // Modal State
-  const [phoneModalFile, setPhoneModalFile] = useState<StorageFile | null>(null);
-  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
 
   // Fetch initial data
   const refreshStorageFiles = useCallback(async () => {
     try {
-      const res = await apiFetch('/api/files');
-      if (res.ok) {
-        const data = await res.json();
-        setFiles(data);
-      }
+      const torrentResponse = await apiFetch('/api/torrents');
+      if (!torrentResponse.ok) return;
+      const ownedTorrents: TorrentItem[] = await torrentResponse.json();
+      const fileGroups = await Promise.all(ownedTorrents.map(async torrent => {
+        const response = await apiFetch(`/api/torrents/${encodeURIComponent(torrent.id)}/files`);
+        if (!response.ok) return [];
+        const torrentFiles: Array<{ index: number; name: string; size: number; progress: number }> = await response.json();
+        return torrentFiles.filter(file => file.progress >= 100).map(file => {
+          const extension = file.name.includes('.') ? file.name.split('.').pop()!.toUpperCase() : 'BIN';
+          return {
+            id: `${torrent.id}:${file.index}`,
+            name: file.name.split('/').pop() || file.name,
+            relativePath: file.name,
+            absolutePath: '',
+            size: file.size,
+            mimeType: 'application/octet-stream',
+            modifiedAt: torrent.addedAt || 0,
+            torrentId: torrent.id,
+            torrentFileIndex: file.index,
+            torrentName: torrent.name,
+            isDirectory: false,
+            extension,
+          } satisfies StorageFile;
+        });
+      }));
+      setFiles(fileGroups.flat());
     } catch {
-      // ignore
+      // Preserve the last known file list during temporary API failures.
     }
   }, []);
 
@@ -167,10 +185,6 @@ export default function App() {
     }
 
     refreshStorageFiles();
-    refreshTokens();
-    refreshAuditLogs();
-    refreshHistory();
-    refreshSettings();
 
     return () => {
       cancelled = true;
@@ -193,7 +207,6 @@ export default function App() {
       const err = await res.json();
       throw new Error(err.error || 'Failed to upload torrent');
     }
-    refreshAuditLogs();
   };
 
   const handleAddMagnet = async (magnetUri: string, name?: string, isSequential?: boolean) => {
@@ -206,7 +219,6 @@ export default function App() {
       const err = await res.json();
       throw new Error(err.error || 'Failed to add magnet link');
     }
-    refreshAuditLogs();
   };
 
   const handleAddPreset = async (presetId: string) => {
@@ -219,33 +231,27 @@ export default function App() {
       const err = await res.json();
       throw new Error(err.error || 'Failed to launch preset download');
     }
-    refreshAuditLogs();
   };
 
   const handlePauseTorrent = async (id: string) => {
     await apiFetch(`/api/torrents/${encodeURIComponent(id)}/pause`, { method: 'POST' });
-    refreshAuditLogs();
   };
 
   const handleResumeTorrent = async (id: string) => {
     await apiFetch(`/api/torrents/${encodeURIComponent(id)}/resume`, { method: 'POST' });
-    refreshAuditLogs();
   };
 
   const handleRecheckTorrent = async (id: string) => {
     await apiFetch(`/api/torrents/${encodeURIComponent(id)}/recheck`, { method: 'POST' });
-    refreshAuditLogs();
   };
 
   const handleReannounceTorrent = async (id: string) => {
     await apiFetch(`/api/torrents/${encodeURIComponent(id)}/reannounce`, { method: 'POST' });
-    refreshAuditLogs();
   };
 
   const handleDeleteTorrent = async (id: string, deleteFiles = false) => {
     if (!confirm('Are you sure you want to remove this torrent from active downloads?')) return;
     await apiFetch(`/api/torrents/${encodeURIComponent(id)}?deleteFiles=${deleteFiles}`, { method: 'DELETE' });
-    refreshAuditLogs();
     refreshStorageFiles();
   };
 
@@ -273,71 +279,19 @@ export default function App() {
     if (!res.ok) throw new Error(await readApiError(res));
   };
 
-  const handleOpenPhoneDownload = (file: StorageFile) => {
-    setPhoneModalFile(file);
-    setIsPhoneModalOpen(true);
-  };
-
-  const handleDirectDownload = (file: StorageFile) => {
-    window.location.href = `/api/files/${encodeURIComponent(file.id)}/download`;
-  };
-
-  const handleCalculateSha256 = async (file: StorageFile): Promise<string> => {
-    const res = await apiFetch(`/api/files/${encodeURIComponent(file.id)}/sha256`, { method: 'POST' });
-    if (!res.ok) throw new Error('Failed to compute hash');
-    const data = await res.json();
-    return data.sha256;
-  };
-
-  const handleDeleteFile = async (file: StorageFile) => {
-    if (!confirm(`Are you sure you want to permanently delete "${file.name}" from cloud storage?`)) return;
-    const res = await apiFetch(`/api/files/${encodeURIComponent(file.id)}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete file');
-    refreshStorageFiles();
-    refreshAuditLogs();
-  };
-
-  const handleRenameFile = async (file: StorageFile, newName: string) => {
-    const res = await apiFetch(`/api/files/${encodeURIComponent(file.id)}/rename`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ newName }),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Failed to rename file');
+  const handleDirectDownload = async (file: StorageFile) => {
+    if (!file.torrentId || file.torrentFileIndex === undefined) {
+      throw new Error('This file is not linked to an owned torrent');
     }
-    refreshStorageFiles();
-    refreshAuditLogs();
-  };
-
-  const handleCreateZip = async (file: StorageFile) => {
-    const res = await apiFetch(`/api/files/${encodeURIComponent(file.id)}/zip`, { method: 'POST' });
-    if (!res.ok) throw new Error('Failed to create archive');
-    refreshStorageFiles();
-    refreshAuditLogs();
-  };
-
-  const handleRevokeToken = async (tokenStr: string) => {
-    await apiFetch(`/api/tokens/${encodeURIComponent(tokenStr)}/revoke`, { method: 'POST' });
-    refreshTokens();
-    refreshAuditLogs();
-  };
-
-  const handleSaveSettings = async (updated: Partial<PerformanceSettings>) => {
-    const res = await apiFetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updated),
-    });
-    if (!res.ok) throw new Error('Failed to update settings');
-    const data = await res.json();
-    setSettings(data);
-    refreshAuditLogs();
-  };
-
-  const handleProfileChange = async (newProfile: PerformanceProfileType) => {
-    await handleSaveSettings({ profile: newProfile });
+    const blob = await downloadTorrentFile(file.torrentId, file.torrentFileIndex);
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = file.name;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(objectUrl);
   };
 
   const activeCount = torrents.filter(t => t.status !== 'completed').length;
@@ -377,7 +331,7 @@ export default function App() {
             onPauseTorrent={handlePauseTorrent}
             onResumeTorrent={handleResumeTorrent}
             onDeleteTorrent={id => handleDeleteTorrent(id, false)}
-            onDownloadToPhone={handleOpenPhoneDownload}
+            onDownloadToPhone={handleDirectDownload}
             onNavigateToTab={setCurrentTab}
           />
         )}
@@ -407,10 +361,8 @@ export default function App() {
         {currentTab === 'completed' && (
           <CompletedDownloadsView
             files={files}
-            onDownloadToPhone={handleOpenPhoneDownload}
+            onDownloadToPhone={handleDirectDownload}
             onDirectDownload={handleDirectDownload}
-            onCalculateSha256={handleCalculateSha256}
-            onDeleteFile={handleDeleteFile}
           />
         )}
 
@@ -419,9 +371,6 @@ export default function App() {
             files={files}
             onDownloadToPhone={handleOpenPhoneDownload}
             onDirectDownload={handleDirectDownload}
-            onDeleteFile={handleDeleteFile}
-            onRenameFile={handleRenameFile}
-            onCreateZip={handleCreateZip}
           />
         )}
 
@@ -464,15 +413,7 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Download to Phone Modal */}
-      <DownloadToPhoneModal
-        file={phoneModalFile}
-        isOpen={isPhoneModalOpen}
-        onClose={() => {
-          setIsPhoneModalOpen(false);
-          setPhoneModalFile(null);
-        }}
-      />
+
     </div>
     </AuthGate>
   );
