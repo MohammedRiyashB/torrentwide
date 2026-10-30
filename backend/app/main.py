@@ -6,6 +6,7 @@ import io
 import os
 import re
 import tempfile
+import time
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -165,6 +166,9 @@ async def torrent_updates(websocket: WebSocket) -> None:
                 return
 
             while True:
+                if float(payload.get("exp", 0)) <= time.time():
+                    await websocket.close(code=1008)
+                    return
                 records = db.scalars(
                     select(TorrentRecord).where(TorrentRecord.user_id == user_id)
                 ).all()
