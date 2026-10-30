@@ -400,7 +400,7 @@ export default function App() {
           <span className="drop-or">OR</span>
           <div className="magnet-field"><Magnet size={18} /><input value={magnet} onChange={(e) => { setMagnet(e.target.value); if (e.target.value) setTorrentFile(null); setError(''); }} placeholder="Paste magnet link (magnet:?xt=…)" aria-label="Magnet link" /></div>
         </div>
-        {!torrentFile && <label className="privacy-option"><input type="checkbox" checked={addPublicTrackers} onChange={(e) => setAddPublicTrackers(e.target.checked)} /><span><strong>Add public WebRTC trackers for magnet links</strong><small>Keep enabled for public torrents. Turn off for private torrents; public trackers can see your IP and info hash.</small></span></label>}
+        {!torrentFile && <label className="privacy-option"><input type="checkbox" checked={addPublicTrackers} onChange={(e) => setAddPublicTrackers(e.target.checked)} /><span><strong>Add public WebRTC trackers for magnet links</strong><small>Enable only for public swarms. Keep disabled for private torrents; public trackers can see your IP and info hash.</small></span></label>}
         {torrentFile && <div className="privacy-option privacy-auto"><ShieldCheck size={17} /><span><strong>Private-torrent protection</strong><small>Torrentwide checks the .torrent private flag and will not add public trackers to a private torrent.</small></span></div>}
         <button className="primary-button" onClick={start} disabled={active || phase === 'complete'}><Radio size={18} />{phase === 'loading' ? 'Loading P2P engine…' : active ? 'Connecting to peers…' : phase === 'complete' ? 'Download complete' : 'Connect & download'}<span>↗</span></button>
         {error && <div className="error-line"><X size={15} />{error}</div>}
