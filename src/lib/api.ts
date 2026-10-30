@@ -6,11 +6,11 @@ export function getAccessToken(): string | null {
 }
 
 export function setAccessToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
+  sessionStorage.setItem(TOKEN_KEY, token);
 }
 
 export function clearAccessToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
 }
 
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
