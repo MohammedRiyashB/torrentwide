@@ -396,17 +396,20 @@ async def download_torrent_file(
     range_header = request.headers.get("range")
     start, end, status_code = 0, max(size - 1, 0), 200
     if range_header:
-        match = re.fullmatch(r"bytes=(\\d*)-(\\d*)", range_header.strip())
-        if not match:
+        match = re.fullmatch(r"bytes=(\d*)-(\d*)", range_header.strip())
+        if not match or size == 0:
             raise HTTPException(status_code=416, detail="Invalid byte range", headers={"Content-Range": f"bytes */{size}"})
         first, last = match.groups()
         if not first and not last:
             raise HTTPException(status_code=416, detail="Invalid byte range", headers={"Content-Range": f"bytes */{size}"})
         if not first:
-            start = max(size - int(last), 0)
+            suffix_length = int(last)
+            if suffix_length <= 0:
+                raise HTTPException(status_code=416, detail="Invalid suffix byte range", headers={"Content-Range": f"bytes */{size}"})
+            start = max(size - suffix_length, 0)
         else:
             start = int(first)
-        if last and first:
+        if last:
             end = min(int(last), size - 1)
         if start >= size or end < start:
             raise HTTPException(status_code=416, detail="Requested range is not satisfiable", headers={"Content-Range": f"bytes */{size}"})
