@@ -1,12 +1,21 @@
 import { Buffer } from 'buffer';
 import process from 'process';
-import {createRoot} from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-// The OPFS chunk-store adapter uses Buffer when reading stored pieces.
-if (!(globalThis as typeof globalThis & { Buffer?: typeof Buffer }).Buffer) {
-  Object.assign(globalThis, { Buffer, process });
+// WebTorrent and its chunk-store dependencies expect Node-style globals.
+// Initialize each global independently so Buffer being present never skips process.
+const runtime = globalThis as typeof globalThis & {
+  Buffer?: typeof Buffer;
+  process?: typeof process;
+};
+runtime.Buffer ??= Buffer;
+runtime.process ??= process;
+
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error('Torrentwide could not find its application root element.');
 }
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(rootElement).render(<App />);
