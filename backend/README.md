@@ -52,3 +52,13 @@ Python FastAPI backend with qBittorrent Web API integration and PostgreSQL-backe
 - Uploads are limited to 10 MB and must contain valid BitTorrent metadata.
 - The backend calculates the info hash, checks account ownership conflicts, submits the metadata to qBittorrent, and records ownership in PostgreSQL.
 - The endpoint does not accept arbitrary files as torrent metadata. Downloaded payload files remain in the qBittorrent downloads volume.
+
+
+## Live torrent updates
+- Authenticated clients connect to `/api/torrents/ws` using WebSocket (WSS behind HTTPS).
+- The client sends its bearer JWT in the first WebSocket JSON message: `{"token":"..."}`. Tokens are not placed in URL query strings.
+- The server validates the JWT, checks that the user still exists, enforces token expiry during the session, and sends only torrents recorded for that user.
+- Update messages use `type: "torrent_update"` and include the same torrent objects as `GET /api/torrents`.
+- The backend currently samples qBittorrent every 2 seconds; this is WebSocket push delivery over periodic engine polling, not native qBittorrent event streaming.
+- The React dashboard uses WebSockets and falls back to 5-second authenticated HTTP polling if the socket closes.
+- Configure `CORS_ORIGINS` with the exact frontend origins for production. Use HTTPS/WSS in production.
