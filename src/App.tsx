@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AuthGate } from './components/AuthGate';
-import { apiFetch, getAccessToken, getTorrentWebSocketUrl } from './lib/api';
+import { apiFetch, getAccessToken, getTorrentWebSocketUrl, readApiError } from './lib/api';
 import { Header } from './components/Header';
 import { Navigation, TabKey } from './components/Navigation';
 import { DashboardView } from './components/DashboardView';
@@ -17,6 +17,7 @@ import { DownloadToPhoneModal } from './components/DownloadToPhoneModal';
 import {
   SystemStats,
   TorrentItem,
+  TorrentFileItem,
   StorageFile,
   DownloadToken,
   AuditLogItem,
@@ -248,12 +249,28 @@ export default function App() {
     refreshStorageFiles();
   };
 
+  const handleFetchTorrentFiles = async (id: string): Promise<TorrentFileItem[]> => {
+    const res = await apiFetch(`/api/torrents/${encodeURIComponent(id)}/files`);
+    if (!res.ok) throw new Error(await readApiError(res));
+    const data = await res.json();
+    return data.map((file: { index: number; name: string; size: number; progress: number; priority: number }) => ({
+      id: String(file.index),
+      name: file.name,
+      path: file.name,
+      size: file.size,
+      progress: file.progress,
+      selected: file.priority > 0,
+      priority: file.priority > 0 ? 'normal' : 'low',
+    }));
+  };
+
   const handleSelectFiles = async (id: string, fileIds: string[]) => {
-    await apiFetch(`/api/torrents/${encodeURIComponent(id)}/select-files`, {
+    const res = await apiFetch(`/api/torrents/${encodeURIComponent(id)}/select-files`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileIds }),
+      body: JSON.stringify({ fileIds: fileIds.map(Number).filter(Number.isInteger) }),
     });
+    if (!res.ok) throw new Error(await readApiError(res));
   };
 
   const handleOpenPhoneDownload = (file: StorageFile) => {
@@ -383,6 +400,7 @@ export default function App() {
             onReannounce={handleReannounceTorrent}
             onDelete={handleDeleteTorrent}
             onSelectFiles={handleSelectFiles}
+            onFetchFiles={handleFetchTorrentFiles}
           />
         )}
 
