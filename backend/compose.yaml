@@ -4,19 +4,34 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    env_file: .env
     environment:
-      TORRENTWIDE_API_TOKEN: ${TORRENTWIDE_API_TOKEN:?Set TORRENTWIDE_API_TOKEN in backend/.env}
       QBITTORRENT_HOST: http://qbittorrent:8080
-      QBITTORRENT_USER: ${QBITTORRENT_USER:-admin}
-      QBITTORRENT_PASSWORD: ${QBITTORRENT_PASSWORD:?Set QBITTORRENT_PASSWORD in backend/.env}
       TORRENT_DOWNLOAD_PATH: /downloads
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
     ports:
       - "8000:8000"
     volumes:
       - torrent_downloads:/downloads
     depends_on:
-      - qbittorrent
+      db:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: torrentwide
+      POSTGRES_USER: torrentwide
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in backend/.env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U torrentwide -d torrentwide"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
@@ -35,8 +50,8 @@ services:
     ports:
       - "6881:6881"
       - "6881:6881/udp"
-    # Keep the Web UI private; the API reaches it over the internal Docker network.
 
 volumes:
+  postgres_data:
   qbittorrent_config:
   torrent_downloads:
