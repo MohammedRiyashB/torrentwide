@@ -4,6 +4,8 @@ import asyncio
 import base64
 import io
 import os
+import mimetypes
+from pathlib import Path
 import re
 import tempfile
 import time
@@ -11,7 +13,8 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import qbittorrentapi
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -324,6 +327,103 @@ def add_magnet(
             pass
         raise HTTPException(status_code=409, detail="Torrent ownership conflict; please retry") from exc
     return {"status": "added", "infoHash": info_hash, "message": "Magnet submitted to qBittorrent"}
+
+
+def torrent_file_path(torrent_id: str, file_index: int, user: User, db: Session) -> tuple[Path, Any]:
+    record = owned_record(db, user, torrent_id)
+    try:
+        files = qbit().torrents_files(torrent_hash=record.info_hash)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Could not retrieve torrent file metadata") from exc
+    selected = next((item for item in files if int(getattr(item, "index", -1)) == file_index), None)
+    if selected is None:
+        raise HTTPException(status_code=404, detail="Torrent file not found")
+    relative_name = str(getattr(selected, "name", ""))
+    root = Path(DOWNLOAD_PATH).resolve()
+    candidate = (root / relative_name).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Unsafe torrent file path")
+    return candidate, selected
+
+
+@app.get("/api/torrents/{torrent_id}/files")
+def list_torrent_files(
+    torrent_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    record = owned_record(db, user, torrent_id)
+    try:
+        files = qbit().torrents_files(torrent_hash=record.info_hash)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Could not retrieve torrent file metadata") from exc
+    return [
+        {
+            "index": int(getattr(item, "index", 0)),
+            "name": str(getattr(item, "name", "")),
+            "size": int(getattr(item, "size", 0) or 0),
+            "progress": round(float(getattr(item, "progress", 0) or 0) * 100, 2),
+            "priority": int(getattr(item, "priority", 0) or 0),
+            "isSeed": bool(getattr(item, "is_seed", False)),
+        }
+        for item in files
+    ]
+
+
+@app.get("/api/torrents/{torrent_id}/files/{file_index}/download")
+async def download_torrent_file(
+    torrent_id: str,
+    file_index: int,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    path, _metadata = torrent_file_path(torrent_id, file_index, user, db)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File is not available on disk yet")
+    size = path.stat().st_size
+    range_header = request.headers.get("range")
+    start, end, status_code = 0, max(size - 1, 0), 200
+    if range_header:
+        match = re.fullmatch(r"bytes=(\\d*)-(\\d*)", range_header.strip())
+        if not match:
+            raise HTTPException(status_code=416, detail="Invalid byte range", headers={"Content-Range": f"bytes */{size}"})
+        first, last = match.groups()
+        if not first and not last:
+            raise HTTPException(status_code=416, detail="Invalid byte range", headers={"Content-Range": f"bytes */{size}"})
+        if not first:
+            start = max(size - int(last), 0)
+        else:
+            start = int(first)
+        if last and first:
+            end = min(int(last), size - 1)
+        if start >= size or end < start:
+            raise HTTPException(status_code=416, detail="Requested range is not satisfiable", headers={"Content-Range": f"bytes */{size}"})
+        status_code = 206
+    length = max(end - start + 1, 0)
+    media_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+
+    async def stream_file():
+        with path.open("rb") as handle:
+            handle.seek(start)
+            remaining = length
+            while remaining:
+                chunk = handle.read(min(1024 * 1024, remaining))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
+                yield chunk
+
+    headers = {
+        "Accept-Ranges": "bytes",
+        "Content-Length": str(length),
+        "Content-Disposition": "attachment; filename=\"" + path.name.replace(chr(34), "") + "\"",
+    }
+    if status_code == 206:
+        headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+    return StreamingResponse(stream_file(), status_code=status_code, media_type=media_type, headers=headers)
 
 
 @app.post("/api/torrents/{torrent_id}/pause")
