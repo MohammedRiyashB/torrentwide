@@ -8,7 +8,7 @@ Torrentwide is being redesigned as a browser-first, peer-to-peer file sharing ap
 - WebRTC data channels carry file bytes directly between sender and receiver browsers.
 - A small Cloudflare Worker + Durable Object brokers WebSocket signaling (SDP/ICE) only. It does not accept, store, or proxy file bytes.
 - Share IDs are random 128-bit values. A 256-bit secret is carried in the URL fragment so it is not sent in HTTP requests or referrer headers.
-- Share expiry options are 1, 7, 30 days, or a custom date/time. The current client enforces expiry; server-side revocation/expiry records are not yet implemented.
+- Share expiry options are 1, 7, 30 days, or a custom date/time. Expiry is bound into the private link ID and checked by the signaling Worker; Durable Object alarms close active room connections at expiry.
 
 ## Run locally
 
