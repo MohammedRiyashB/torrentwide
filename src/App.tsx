@@ -39,7 +39,7 @@ export default function App() {
     if (!file) return setError("Choose a file from your device first.");
     if (expiry === "custom" && (!customDate || !Number.isFinite(expiryAt) || expiryAt <= Date.now())) return setError("Choose a future expiry date and time.");
     try {
-      const { id, secret } = await createShareCredentials();
+      const { id, secret } = await createShareCredentials(expiryAt);
       const expiresAt = expiryAt;
       const url = buildShareUrl(window.location.href.split("?")[0].split("#")[0], id, secret, expiresAt);
       setShareUrl(url); setRole("sender"); setPhase("connecting"); setProgress(0); setTotal(file.size);
