@@ -44,7 +44,7 @@ export default function App() {
       const url = buildShareUrl(window.location.href.split("?")[0].split("#")[0], id, secret, expiresAt);
       setShareUrl(url); setRole("sender"); setPhase("connecting"); setProgress(0); setTotal(file.size);
       session.current?.close?.();
-      session.current = await startSender({ id, file, onStatus: (s) => { setStatus(s); if (s === "connected") setPhase("transferring"); }, onProgress: (sent, size) => { setProgress(sent); setTotal(size); setPhase("transferring"); } });
+      session.current = await startSender({ id, file, expiresAt, onStatus: (s) => { setStatus(s); if (s === "connected") setPhase("transferring"); }, onProgress: (sent, size) => { setProgress(sent); setTotal(size); setPhase("transferring"); } });
       setPhase("waiting");
       setStatus("Share is ready. Keep this tab open and online while recipients download.");
     } catch (e) { setPhase("error"); setError(e instanceof Error ? e.message : "Could not create this share."); }
