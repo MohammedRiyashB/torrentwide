@@ -17,8 +17,7 @@ export async function createShareCredentials(expiresAt) {
 }
 export async function verifyShareCredentials(id, secret, expiresAt) {
   if (!/^[a-f0-9]{64}$/i.test(secret)) return false;
-  const raw = Uint8Array.from(secret.match(/.{2}/g), (pair) => parseInt(pair, 16));
-  const digest = await crypto.subtle.digest("SHA-256", raw);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret + ":" + expiresAt));
   const expected = Array.from(new Uint8Array(digest).slice(0, ID_BYTES), (v) => v.toString(16).padStart(2, "0")).join("");
   return expected === id.toLowerCase();
 }
