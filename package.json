@@ -1,7 +1,7 @@
 {
   "name": "torrentwide",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,13 +16,7 @@
     "lucide-react": "^0.546.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
-    "vite": "^8.3.0",
-    "webtorrent": "^3.0.21",
-    "fs-access-chunk-store": "^1.1.0",
-    "buffer": "^6.0.3",
-    "events": "^3.3.0",
-    "path-browserify": "^1.0.1",
-    "process": "^0.11.10"
+    "vite": "^8.3.0"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
