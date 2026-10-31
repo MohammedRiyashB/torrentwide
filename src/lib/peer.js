@@ -88,7 +88,7 @@ export async function startSender({ id, file, expiresAt, onStatus, onProgress })
 }
 
 export async function startReceiver({ id, secret, expiresAt, onStatus, onFile, onProgress }) {
-  if (!(await verifyShareCredentials(id, secret))) throw new Error("This private share key does not match the share ID.");
+  if (!(await verifyShareCredentials(id, secret, expiresAt))) throw new Error("This private share key does not match the share ID.");
   let pc;
   let received = 0;
   let expected = 0;
