@@ -1,4 +1,4 @@
-import { DEFAULT_CHUNK_SIZE, sha256 } from "./share.js";
+import { DEFAULT_CHUNK_SIZE, verifyShareCredentials } from "./share.js";
 const SIGNAL_URL = import.meta.env.VITE_SIGNALING_URL || "";
 const ICE_SERVERS = [{ urls: "stun:stun.cloudflare.com:3478" }, { urls: "stun:stun.l.google.com:19302" }];
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
