@@ -8,14 +8,14 @@ function randomToken(bytes) {
   const data = crypto.getRandomValues(new Uint8Array(bytes));
   return Array.from(data, (v) => v.toString(16).padStart(2, "0")).join("");
 }
-export async function createShareCredentials() {
+export async function createShareCredentials(expiresAt) {
   const secret = randomToken(SECRET_BYTES);
   const raw = Uint8Array.from(secret.match(/.{2}/g), (pair) => parseInt(pair, 16));
   const digest = await crypto.subtle.digest("SHA-256", raw);
   const id = Array.from(new Uint8Array(digest).slice(0, ID_BYTES), (v) => v.toString(16).padStart(2, "0")).join("");
   return { id, secret };
 }
-export async function verifyShareCredentials(id, secret) {
+export async function verifyShareCredentials(id, secret, expiresAt) {
   if (!/^[a-f0-9]{64}$/i.test(secret)) return false;
   const raw = Uint8Array.from(secret.match(/.{2}/g), (pair) => parseInt(pair, 16));
   const digest = await crypto.subtle.digest("SHA-256", raw);
@@ -47,7 +47,7 @@ export async function deriveShareKey(secret) {
   if (raw.length !== SECRET_BYTES) throw new Error("Invalid private share key.");
   const material = await crypto.subtle.importKey("raw", raw, "HKDF", false, ["deriveKey"]);
   return crypto.subtle.deriveKey(
-    { name: "HKDF", hash: "SHA-256", salt: new TextEncoder().encode("torrentwide-share-v1"), info: new TextEncoder().encode("file-transfer") },
+    { name: "HKDF", hash: "SHA-256", salt: new TextEncoder().encode("torrentwide-share-v1:" + expiresAt), info: new TextEncoder().encode("file-transfer") },
     material, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
   );
 }
