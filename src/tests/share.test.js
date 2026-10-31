@@ -6,7 +6,7 @@ test("share credentials contain an unguessable id and private key", () => {
   const credentials = createShareCredentials();
   assert.match(credentials.id, /^[a-f0-9]{32}$/);
   assert.match(credentials.secret, /^[a-f0-9]{64}$/);
-  assert.notEqual(credentials.id, credentials.secret);\n  assert.equal(await verifyShareCredentials(credentials.id, credentials.secret), true);\n  assert.equal(await verifyShareCredentials(credentials.id, "f".repeat(64)), false);
+  assert.notEqual(credentials.id, credentials.secret);\n  assert.equal(await verifyShareCredentials(credentials.id, credentials.secret, 1800000000000), true);\n  assert.equal(await verifyShareCredentials(credentials.id, "f".repeat(64), 1800000000000), false\n  assert.equal(await verifyShareCredentials(credentials.id, credentials.secret, 1800000000001), false);
 });
 test("share links keep the secret in the URL fragment", () => {
   const url = buildShareUrl("https://example.test/torrentwide/", "a".repeat(32), "b".repeat(64), 1900000000000);
