@@ -2,18 +2,23 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildShareUrl, parseShareLocation, getExpiryTimestamp, isExpired, createShareCredentials, verifyShareCredentials } from "../lib/share.js";
 
-test("share credentials contain an unguessable id and private key", () => {
-  const credentials = createShareCredentials();
+test("share credentials bind a random secret to its expiry", async () => {
+  const expiresAt = 1800000000000;
+  const credentials = await createShareCredentials(expiresAt);
   assert.match(credentials.id, /^[a-f0-9]{32}$/);
   assert.match(credentials.secret, /^[a-f0-9]{64}$/);
-  assert.notEqual(credentials.id, credentials.secret);\n  assert.equal(await verifyShareCredentials(credentials.id, credentials.secret, 1800000000000), true);\n  assert.equal(await verifyShareCredentials(credentials.id, "f".repeat(64), 1800000000000), false\n  assert.equal(await verifyShareCredentials(credentials.id, credentials.secret, 1800000000001), false);
+  assert.equal(await verifyShareCredentials(credentials.id, credentials.secret, expiresAt), true);
+  assert.equal(await verifyShareCredentials(credentials.id, "f".repeat(64), expiresAt), false);
+  assert.equal(await verifyShareCredentials(credentials.id, credentials.secret, expiresAt + 1), false);
 });
-test("share links keep the secret in the URL fragment", () => {
-  const url = buildShareUrl("https://example.test/torrentwide/", "a".repeat(32), "b".repeat(64), 1900000000000);
+test("share links keep the secret in the URL fragment", async () => {
+  const expiresAt = 1900000000000;
+  const credentials = await createShareCredentials(expiresAt);
+  const url = buildShareUrl("https://example.test/torrentwide/", credentials.id, credentials.secret, expiresAt);
   const parsed = parseShareLocation({ href: url });
-  assert.equal(parsed.id, "a".repeat(32));
-  assert.equal(parsed.secret, "b".repeat(64));
-  assert.equal(parsed.expiresAt, 1900000000000);
+  assert.equal(parsed.id, credentials.id);
+  assert.equal(parsed.secret, credentials.secret);
+  assert.equal(parsed.expiresAt, expiresAt);
   assert.equal(new URL(url).searchParams.has("key"), false);
 });
 test("invalid share links are rejected", () => {
