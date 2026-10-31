@@ -95,7 +95,7 @@ export async function startReceiver({ id, onStatus, onFile, onProgress }) {
       await pc.setRemoteDescription(message.sdp);
       const answer = await pc.createAnswer(); await pc.setLocalDescription(answer); await waitIceComplete(pc);
       socket.send(JSON.stringify({ type: "answer", target: message.peerId, sdp: pc.localDescription }));
-    } else if (message.type === "candidate" && pc && message.candidate) await pc.addIceCandidate(message.candidate).catch(() => {});
+    } else if (message.type === "candidate" && pc && message.candidate) await pc.addIceCandidate(message.candidate).catch(() => {});\n    else if (message.type === "sender-ready") socket.send(JSON.stringify({ type: "receiver-join" }));\n    else if (message.type === "waiting-for-sender") onStatus("waiting-for-sender");
   });
   socket.send(JSON.stringify({ type: "receiver-join" }));
   return { close() { socket.close(); pc?.close(); }, get receivedBytes() { return received; } };
