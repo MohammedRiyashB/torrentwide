@@ -56,7 +56,7 @@ export default function App() {
     try {
       session.current?.close?.();
       session.current = await startReceiver({
-        id: receiver.id,
+        id: receiver.id, secret: receiver.secret, expiresAt: receiver.expiresAt,
         onStatus: (s) => { setStatus(s); if (s === "connected") setPhase("transferring"); if (s === "complete") setPhase("complete"); },
         onFile: (f) => { setTransferFile(f); if (f.blob) setPhase("complete"); },
         onProgress: (n, size) => { setProgress(n); setTotal(size); setPhase("transferring"); }
