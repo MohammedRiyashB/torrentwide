@@ -10,7 +10,6 @@ function randomToken(bytes) {
 }
 export async function createShareCredentials(expiresAt) {
   const secret = randomToken(SECRET_BYTES);
-  const raw = Uint8Array.from(secret.match(/.{2}/g), (pair) => parseInt(pair, 16));
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret + ":" + expiresAt));
   const id = Array.from(new Uint8Array(digest).slice(0, ID_BYTES), (v) => v.toString(16).padStart(2, "0")).join("");
   return { id, secret };
