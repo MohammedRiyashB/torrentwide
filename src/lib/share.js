@@ -11,18 +11,20 @@ function randomToken(bytes) {
 export function createShareCredentials() {
   return { id: randomToken(ID_BYTES), secret: randomToken(SECRET_BYTES) };
 }
-export function buildShareUrl(baseUrl, id, secret) {
+export function buildShareUrl(baseUrl, id, secret, expiresAt) {
   const url = new URL(baseUrl);
+  url.searchParams.set("share", id);
+  url.searchParams.set("exp", String(expiresAt));
   url.hash = new URLSearchParams({ key: secret }).toString();
-  url.pathname = url.pathname.replace(/\/$/, "") + "/s/" + encodeURIComponent(id);
   return url.toString();
 }
 export function parseShareLocation(locationLike) {
   const url = new URL(locationLike.href);
-  const match = url.pathname.match(/\/s\/([a-f0-9]{32})\/?$/i);
+  const id = url.searchParams.get("share") || "";
+  const expiresAt = Number(url.searchParams.get("exp"));
   const secret = new URLSearchParams(url.hash.slice(1)).get("key") || "";
-  if (!match || !/^[a-f0-9]{64}$/i.test(secret)) return null;
-  return { id: match[1].toLowerCase(), secret: secret.toLowerCase() };
+  if (!/^[a-f0-9]{32}$/i.test(id) || !/^[a-f0-9]{64}$/i.test(secret) || !Number.isFinite(expiresAt)) return null;
+  return { id: id.toLowerCase(), secret: secret.toLowerCase(), expiresAt };
 }
 export function getExpiryTimestamp(days, now = Date.now()) {
   if (days !== "custom" && !EXPIRY_OPTIONS.includes(Number(days))) throw new Error("Choose 1, 7, 30 days or a custom expiry.");
