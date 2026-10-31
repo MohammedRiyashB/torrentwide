@@ -47,7 +47,7 @@ export async function deriveShareKey(secret) {
   if (raw.length !== SECRET_BYTES) throw new Error("Invalid private share key.");
   const material = await crypto.subtle.importKey("raw", raw, "HKDF", false, ["deriveKey"]);
   return crypto.subtle.deriveKey(
-    { name: "HKDF", hash: "SHA-256", salt: new TextEncoder().encode("torrentwide-share-v1:" + expiresAt), info: new TextEncoder().encode("file-transfer") },
+    { name: "HKDF", hash: "SHA-256", salt: new TextEncoder().encode("torrentwide-share-v1"), info: new TextEncoder().encode("file-transfer") },
     material, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
   );
 }
