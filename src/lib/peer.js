@@ -3,11 +3,11 @@ const SIGNAL_URL = import.meta.env.VITE_SIGNALING_URL || "";
 const ICE_SERVERS = [{ urls: "stun:stun.cloudflare.com:3478" }, { urls: "stun:stun.l.google.com:19302" }];
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export function signalingUrl(id, role) {
+export function signalingUrl(id, role, expiresAt) {
   if (!SIGNAL_URL) throw new Error("Signaling is not configured yet. Deploy the Torrentwide signaling Worker and set VITE_SIGNALING_URL.");
   const url = new URL(SIGNAL_URL);
   url.pathname = url.pathname.replace(/\/$/, "") + "/signal/" + encodeURIComponent(id);
-  url.searchParams.set("role", role);
+  url.searchParams.set("role", role);\n  url.searchParams.set("exp", String(expiresAt));
   return url.toString().replace(/^http/, "ws");
 }
 export function connectSignal(id, role, onMessage) {
@@ -29,7 +29,7 @@ function waitIceComplete(pc) {
     setTimeout(resolve, 8000);
   });
 }
-export async function startSender({ id, file, onStatus, onProgress }) {
+export async function startSender({ id, file, expiresAt, onStatus, onProgress }) {
   const peers = new Map();
   const socket = await connectSignal(id, "sender", async (message) => {
     if (message.type !== "receiver-join" || peers.has(message.peerId)) return;
